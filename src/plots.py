@@ -1,13 +1,20 @@
-"""Gráficos e tabelas de comparação a partir de results/<tag>/.
+"""Gráficos e tabelas de comparação a partir de results/<tag>/ (seaborn + matplotlib).
+
+Princípios: escalas lineares, eixo y igual entre painéis comparados, um assunto por
+painel, rótulo com o valor final em cada curva e legendas que explicam a leitura.
 
 Uso:  python -m src.plots
 """
 from __future__ import annotations
 
+import csv
 import json
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import seaborn as sns
+from matplotlib.colors import PowerNorm
 
 from . import style
 from .data import CLASSES, ROOT, get_splits
@@ -23,6 +30,10 @@ LABELS = {  # prefixo do tag -> nome exibido (ordem fixa = ordem da paleta)
     "minhacnn_noreg": "MinhaCNN sem regularização",
 }
 DS_NAME = {"mnist": "MNIST", "cifar10": "CIFAR-10"}
+FAMILIES = [
+    ("CNN própria, treinada do zero", ["MinhaCNN", "MinhaCNN sem regularização"]),
+    ("ResNet18", ["ResNet18 (fine-tuning)", "ResNet18 (extração)", "ResNet18 do zero"]),
+]
 
 
 def br(x, d=2):
@@ -50,215 +61,275 @@ def ordered(runs, ds):
     return [lab for lab in LABELS.values() if (lab, ds) in runs]
 
 
-def end_label(ax, x, y, text, color=style.INK2, dx=0.6):
-    ax.annotate(text, (x, y), xytext=(4, 0), textcoords="offset points", va="center",
-                fontsize=8, color=color)
+def curves(runs, lab, ds):
+    h = runs[(lab, ds)]["h"]
+    ep = np.array([e["epoch"] for e in h])
+    tr = 100 * np.array([e["train_acc"] for e in h])
+    va = 100 * np.array([e["val_acc"] for e in h])
+    return ep, tr, va
 
 
-def place_end_labels(ax, items, min_gap=0.055):
-    """Rótulos no fim das linhas, afastados verticalmente para não se sobreporem.
-    items: lista de (x, y, texto, cor) em coordenadas de dados."""
-    to_ax = ax.transAxes.inverted()
-    pts = []
-    for x, y, t, c in items:
-        fx, fy = to_ax.transform(ax.transData.transform((x, y)))
-        pts.append([fy, fx, t, c])
-    pts.sort(key=lambda p: p[0])
-    for i in range(1, len(pts)):
-        if pts[i][0] - pts[i - 1][0] < min_gap:
-            pts[i][0] = pts[i - 1][0] + min_gap
-    over = pts[-1][0] - 0.98 if pts else 0
-    if over > 0:
-        for p in pts:
-            p[0] -= over
-    for fy, fx, t, c in pts:
-        ax.text(fx + 0.012, fy, t, transform=ax.transAxes, va="center", fontsize=8, color=c)
+def spread_labels(ax, items, min_gap):
+    """Escreve rótulos à direita do fim das curvas sem sobreposição.
+    items: lista de (x, y, texto, cor) em coordenadas de dados; min_gap em unidades de y."""
+    items = sorted(items, key=lambda t: t[1])
+    groups = [[i] for i in range(len(items))]
+    pos = [it[1] for it in items]
+    changed = True
+    while changed:  # junta rótulos que colidem e centraliza o grupo no valor médio
+        changed = False
+        for g in range(len(groups) - 1):
+            if pos[groups[g + 1][0]] - pos[groups[g][-1]] < min_gap:
+                merged = groups[g] + groups[g + 1]
+                center = np.mean([items[i][1] for i in merged])
+                start = center - min_gap * (len(merged) - 1) / 2
+                for k, i in enumerate(merged):
+                    pos[i] = start + k * min_gap
+                groups[g:g + 2] = [merged]
+                changed = True
+                break
+    ys = pos
+    top = ax.get_ylim()[1]
+    if ys and ys[-1] > top - min_gap * 0.3:
+        shift = ys[-1] - (top - min_gap * 0.3)
+        ys = [y - shift for y in ys]
+    for (x, y, t, c), yl in zip(items, ys):
+        ax.annotate(t, (x, y), xytext=(x, yl), textcoords="data", va="center", ha="left",
+                    fontsize=10, color=c, fontweight="bold",
+                    xycoords="data", annotation_clip=False,
+                    bbox=dict(boxstyle="round,pad=0.15", fc=style.SURFACE, ec="none"))
 
 
-def epoch_axis(ax, max_ep, extra=1.5):
-    """Espaço à direita para rótulos, mas eixo/ticks só até a última época."""
-    step = 5 if max_ep > 10 else 1
-    ax.set_xlim(0 if max_ep > 10 else 0.5, max_ep * extra)
-    ax.set_xticks([t for t in range(0, max_ep + 1, step) if t >= (0 if max_ep > 10 else 1)])
-    ax.spines["bottom"].set_bounds(ax.get_xticks()[0], max_ep)
+def finish(fig, fname, note=None):
+    if note:
+        fig.text(0.01, -0.01, note, fontsize=9, color=style.MUTED, ha="left", va="top")
+    fig.savefig(FIG / fname)
+    plt.close(fig)
 
 
 # --------------------------------------------------------------------------- #
+# 1) Erro no teste
+# --------------------------------------------------------------------------- #
 def fig_test_error(runs):
-    fig, axes = plt.subplots(1, 2, figsize=(11, 3.6))
+    fig, axes = plt.subplots(1, 2, figsize=(13, 4.4), gridspec_kw={"width_ratios": [3, 5]})
     for ax, ds in zip(axes, ["mnist", "cifar10"]):
         labs = ordered(runs, ds)
-        err = [100 * (1 - runs[(l, ds)]["m"]["test_acc"]) for l in labs]
-        y = np.arange(len(labs))[::-1]
-        ax.barh(y, err, height=0.62, color=[style.COLORS[l] for l in labs],
-                edgecolor=style.SURFACE, linewidth=2)
-        for yi, e, l in zip(y, err, labs):
-            acc = 100 - e
-            ax.annotate(f"{br(e)}%  (acurácia {br(acc)}%)", (e, yi), xytext=(4, 0),
-                        textcoords="offset points", va="center", fontsize=8, color=style.INK2)
-        ax.set_yticks(y, labs)
-        ax.set_xlim(0, max(err) * 1.7)
+        df = pd.DataFrame({"modelo": labs,
+                           "erro": [100 * (1 - runs[(l, ds)]["m"]["test_acc"]) for l in labs]})
+        sns.barplot(data=df, y="modelo", x="erro", hue="modelo", palette=style.COLORS,
+                    legend=False, ax=ax, width=0.65, edgecolor=style.SURFACE, linewidth=2,
+                    saturation=1)
+        for i, e in enumerate(df["erro"]):
+            ax.text(e + df["erro"].max() * 0.02, i, f"{br(e)}%", va="center", fontsize=11,
+                    color=style.INK, fontweight="bold")
+            ax.text(e + df["erro"].max() * 0.02, i + 0.3, f"acerta {br(100 - e)}%", va="center",
+                    fontsize=8.5, color=style.INK2)
+        ax.set_xlim(0, df["erro"].max() * 1.35)
+        ax.set_xlabel("erro no teste (%)  ←  menor é melhor")
+        ax.set_ylabel("")
+        ax.set_title(DS_NAME[ds], loc="left", fontsize=14)
         ax.grid(axis="y", visible=False)
-        ax.set_xlabel("erro no conjunto de teste (%) — menor é melhor")
-        ax.set_title(f"{DS_NAME[ds]}", loc="left")
-        ax.tick_params(axis="y", length=0)
-    fig.suptitle("Erro de teste por modelo", fontsize=12, fontweight="bold", x=0.01,
-                 ha="left", color=style.INK)
+    fig.suptitle("Quanto cada modelo erra no conjunto de teste (10.000 imagens)", x=0.01,
+                 ha="left", fontsize=15, fontweight="bold", color=style.INK)
     fig.tight_layout()
-    fig.savefig(FIG / "comparacao_erro_teste.png"); plt.close(fig)
+    finish(fig, "comparacao_erro_teste.png")
 
 
+# --------------------------------------------------------------------------- #
+# 2) Curvas de validação: linhas = dataset, colunas = família de modelos (mesmo eixo y)
+# --------------------------------------------------------------------------- #
 def fig_val_curves(runs):
-    fig, axes = plt.subplots(2, 2, figsize=(11, 7))
+    fig, axes = plt.subplots(2, 2, figsize=(13, 8.6), sharey="row",
+                             gridspec_kw={"width_ratios": [1.35, 1]})
     for r, ds in enumerate(["mnist", "cifar10"]):
-        for c, (key, ylab) in enumerate([("val_acc", "acurácia na validação (%)"),
-                                         ("val_loss", "perda na validação (entropia cruzada)")]):
+        row_min = min(curves(runs, l, ds)[2].min() for l in ordered(runs, ds))
+        lo = np.floor(row_min / 5) * 5 if ds == "cifar10" else np.floor(row_min) - 1
+        best_minha = curves(runs, "MinhaCNN", ds)[2].max()
+        for c, (fam, labs) in enumerate(FAMILIES):
             ax = axes[r, c]
-            for lab in ordered(runs, ds):
-                h = runs[(lab, ds)]["h"]
-                ep = [e["epoch"] for e in h]
-                v = [100 * e[key] if key == "val_acc" else e[key] for e in h]
-                ax.plot(ep, v, color=style.COLORS[lab], label=lab, marker="o" if len(ep) <= 5 else None,
-                        markersize=4)
-            ax.set_xlabel("época"); ax.set_ylabel(ylab)
-            ax.set_title(f"{DS_NAME[ds]}", loc="left")
-            if key == "val_acc":
-                lo = 96 if ds == "mnist" else 40
-                ax.set_ylim(lo, 100)
-            else:
-                ax.set_yscale("log")
-    h, l = axes[0, 0].get_legend_handles_labels()
-    h2, l2 = axes[1, 0].get_legend_handles_labels()
-    seen = dict(zip(l, h)); seen.update(dict(zip(l2, h2)))
-    order = [x for x in LABELS.values() if x in seen]
-    fig.legend([seen[x] for x in order], order, loc="upper center", ncol=len(order),
-               bbox_to_anchor=(0.5, 1.02))
-    fig.suptitle("Curvas de validação por época", fontsize=12, fontweight="bold",
-                 y=1.06, color=style.INK)
+            labs = [l for l in labs if (l, ds) in runs]
+            items, max_ep = [], 1
+            for lab in labs:
+                ep, _, va = curves(runs, lab, ds)
+                max_ep = max(max_ep, ep[-1])
+                ax.plot(ep, va, color=style.COLORS[lab], lw=2.6, label=lab,
+                        marker="o" if len(ep) <= 6 else None, markersize=7,
+                        markeredgecolor=style.SURFACE, markeredgewidth=1.5)
+                items.append((ep[-1] + max(0.15, ep[-1] * 0.025), va[-1], f"{br(va[-1], 1)}%",
+                              style.COLORS[lab]))
+            if c == 1 and ds == "cifar10":  # referência: melhor validação da MinhaCNN
+                ax.axhline(best_minha, color=style.INK2, lw=1.2, ls=(0, (4, 3)), zorder=1)
+                ax.text(0.98, best_minha + 0.4,
+                        f"melhor validação da MinhaCNN: {br(best_minha, 1)}%",
+                        transform=ax.get_yaxis_transform(), ha="right", va="bottom",
+                        fontsize=9, color=style.INK2)
+            ax.set_ylim(lo, 100.5)
+            ax.set_xlim(0.5 if max_ep <= 6 else 0, max_ep * (1.22 if max_ep > 6 else 1.3))
+            ax.set_xticks(range(1, max_ep + 1) if max_ep <= 6 else range(0, max_ep + 1, 5))
+            spread_labels(ax, items, min_gap=(100.5 - lo) * 0.06)
+            ax.set_title(f"{DS_NAME[ds]} — {fam}", loc="left", fontsize=13)
+            ax.set_xlabel("época")
+            ax.set_ylabel("acurácia na validação (%)" if c == 0 else "")
+            ax.legend(loc="lower right", frameon=True, facecolor=style.SURFACE,
+                      edgecolor=style.GRID, fontsize=9.5)
+    fig.suptitle("Acurácia na validação ao longo do treino", x=0.01, ha="left", fontsize=15,
+                 fontweight="bold", color=style.INK)
     fig.tight_layout()
-    fig.savefig(FIG / "curvas_validacao.png"); plt.close(fig)
+    finish(fig, "curvas_validacao.png",
+           "Cada linha do gráfico é um dataset e usa o mesmo eixo vertical nos dois painéis. "
+           "No CIFAR-10, a linha tracejada repete no painel da ResNet18 o melhor valor da MinhaCNN.")
 
 
-def fig_train_vs_val(runs, ds, labs, fname, title, split=False):
-    present = [l for l in labs if (l, ds) in runs]
-    if not present:
-        return
-    fig, axes = plt.subplots(1, len(present) if len(present) > 1 and split else 2,
-                             figsize=(11, 3.9))
-    panels = ([(ax, "acc", [l]) for ax, l in zip(axes, present)] if split else
-              [(axes[0], "acc", present), (axes[1], "loss", present)])
-    for ax, k, plabs in panels:
-        ylab = "acurácia (%)" if k == "acc" else "perda (entropia cruzada)"
-        items, max_ep = [], 1
-        for lab in plabs:
-            h = runs[(lab, ds)]["h"]
-            ep = [e["epoch"] for e in h]
-            max_ep = max(max_ep, ep[-1])
-            f = (lambda v: 100 * v) if k == "acc" else (lambda v: v)
-            tr = [f(e[f"train_{k}"]) for e in h]; va = [f(e[f"val_{k}"]) for e in h]
-            col = style.COLORS[lab]
-            mk = "o" if len(ep) <= 5 else None
-            ax.plot(ep, tr, color=col, linewidth=1.2, alpha=0.55, marker=mk, markersize=3)
-            ax.plot(ep, va, color=col, linewidth=2.2, marker=mk, markersize=4)
-            short = "" if split else f"{lab}: "
-            items += [(ep[-1], tr[-1], f"{short}treino", col), (ep[-1], va[-1], f"{short}validação", col)]
-        ax.set_xlabel("época"); ax.set_ylabel(ylab)
-        if k == "loss":
-            ax.set_yscale("log")
-        if split:
-            ax.set_title(plabs[0], loc="left")
-        epoch_axis(ax, max_ep, 1.35 if split else 1.55)
-        fig.canvas.draw()
-        place_end_labels(ax, items)
-    fig.suptitle(title, fontsize=12, fontweight="bold", color=style.INK, x=0.01, ha="left")
-    fig.text(0.01, -0.03, "Linha fina = treino (com aumento de dados/dropout ativos quando houver);"
-             " linha grossa = validação.", fontsize=8, color=style.MUTED)
+# --------------------------------------------------------------------------- #
+# 3) Treino x validação, com o gap sombreado
+# --------------------------------------------------------------------------- #
+def fig_train_val(runs, ds, labs, fname, title):
+    labs = [l for l in labs if (l, ds) in runs]
+    fig, axes = plt.subplots(1, len(labs), figsize=(6.6 * len(labs), 4.9), sharey=True)
+    axes = np.atleast_1d(axes)
+    allv = np.concatenate([np.concatenate(curves(runs, l, ds)[1:]) for l in labs])
+    lo = np.floor(allv.min() / 5) * 5 if ds == "cifar10" else np.floor(allv.min()) - 1
+    for ax, lab in zip(axes, labs):
+        ep, tr, va = curves(runs, lab, ds)
+        col = style.COLORS[lab]
+        ax.fill_between(ep, tr, va, color=col, alpha=0.13, lw=0)
+        mk = dict(marker="o", markersize=6, markeredgecolor=style.SURFACE) if len(ep) <= 6 else {}
+        ax.plot(ep, tr, color=col, lw=2, alpha=0.5, label="treino", **mk)
+        ax.plot(ep, va, color=col, lw=2.8, label="validação", **mk)
+        gap = tr[-1] - va[-1]
+        ax.text(0.97, 0.06,
+                f"última época:\ntreino {br(tr[-1], 1)}%  ·  validação {br(va[-1], 1)}%\n"
+                f"diferença: {br(gap, 1)} p.p.",
+                transform=ax.transAxes, ha="right", va="bottom", fontsize=10.5, color=style.INK,
+                bbox=dict(boxstyle="round,pad=0.5", fc=style.SURFACE, ec=style.GRID))
+        ax.set_title(lab, loc="left", fontsize=13, color=col)
+        ax.set_xlabel("época")
+        ax.set_ylim(lo, 101)
+        n = ep[-1]
+        ax.set_xticks(range(1, n + 1) if n <= 6 else range(0, n + 1, 5))
+        ax.legend(loc="center right", frameon=True, facecolor=style.SURFACE,
+                  edgecolor=style.GRID, fontsize=10)
+    axes[0].set_ylabel("acurácia (%)")
+    fig.suptitle(title, x=0.01, ha="left", fontsize=15, fontweight="bold", color=style.INK)
     fig.tight_layout()
-    fig.savefig(FIG / fname); plt.close(fig)
+    finish(fig, fname, "Treino = acurácia durante a época, com aumento de dados e dropout "
+                       "ativos (quando o modelo os usa). A área sombreada é a diferença entre "
+                       "treino e validação.")
 
 
+# --------------------------------------------------------------------------- #
+# 4) Matrizes de confusão (seaborn heatmap)
+# --------------------------------------------------------------------------- #
 def fig_confusion(runs, ds, labs):
-    fig, axes = plt.subplots(1, len(labs), figsize=(6.2 * len(labs), 5.6))
     cls = CLASSES[ds]
-    for ax, lab in zip(np.atleast_1d(axes), labs):
+    fig, axes = plt.subplots(1, len(labs), figsize=(7.2 * len(labs), 6.6))
+    axes = np.atleast_1d(axes)
+    for ax, lab in zip(axes, labs):
         cm = np.array(runs[(lab, ds)]["m"]["confusion_matrix"], dtype=float)
-        cmn = 100 * cm / cm.sum(1, keepdims=True)
-        vmax = 100 if ds == "cifar10" else 100
-        ax.imshow(np.sqrt(cmn), cmap=style.SEQ, vmin=0, vmax=np.sqrt(vmax))
-        for i in range(10):
-            for j in range(10):
-                v = cmn[i, j]
-                if (ds == "cifar10" and v >= 1) or (ds == "mnist" and cm[i, j] > 0):
-                    txt = br(v, 0 if v >= 10 else 1) if ds == "cifar10" else str(int(cm[i, j]))
-                    ax.text(j, i, txt, ha="center", va="center", fontsize=7,
-                            color="white" if v > 40 else style.INK2)
-        ax.set_xticks(range(10), cls, rotation=45, ha="right", fontsize=8)
-        ax.set_yticks(range(10), cls, fontsize=8)
-        ax.set_xlabel("classe prevista"); ax.set_ylabel("classe real")
-        ax.grid(False)
+        pct = 100 * cm / cm.sum(1, keepdims=True)
+        if ds == "cifar10":
+            annot = np.where(pct >= 1, np.vectorize(lambda v: br(v, 0 if v >= 10 else 1))(pct), "")
+        else:
+            annot = np.where(cm > 0, cm.astype(int).astype(str), "")
+        sns.heatmap(pct, annot=annot, fmt="", cmap=style.SEQ, norm=PowerNorm(0.45, 0, 100),
+                    cbar=False, square=True, linewidths=1, linecolor=style.SURFACE,
+                    xticklabels=cls, yticklabels=cls, ax=ax, annot_kws={"fontsize": 9.5})
+        ax.set_xlabel("classe prevista pelo modelo", fontsize=11)
+        ax.set_ylabel("classe real", fontsize=11)
+        ax.tick_params(axis="x", rotation=45)
+        ax.tick_params(axis="y", rotation=0)
+        for t in ax.get_xticklabels():
+            t.set_ha("right")
         acc = runs[(lab, ds)]["m"]["test_acc"]
-        ax.set_title(f"{lab} — acurácia {br(100 * acc)}%", loc="left")
-    unit = "valores em % de cada classe real" if ds == "cifar10" else "valores = nº de imagens"
-    fig.suptitle(f"Matrizes de confusão no teste — {DS_NAME[ds]} ({unit})" if len(labs) > 1 else
-                 f"Matriz de confusão no teste — {DS_NAME[ds]} ({unit})", fontsize=12,
-                 fontweight="bold", color=style.INK, x=0.01, ha="left")
+        ax.set_title(f"{lab}  ·  acurácia {br(100 * acc)}%", loc="left", fontsize=13,
+                     color=style.COLORS[lab])
+    unit = ("cada linha soma 100%: o número é a % das imagens daquela classe real"
+            if ds == "cifar10" else "números = quantidade de imagens de teste")
+    fig.suptitle(f"Matriz de confusão — {DS_NAME[ds]}", x=0.01, ha="left", fontsize=15,
+                 fontweight="bold", color=style.INK)
     fig.tight_layout()
-    fig.savefig(FIG / f"matriz_confusao_{ds}.png"); plt.close(fig)
+    finish(fig, f"matriz_confusao_{ds}.png",
+           f"Diagonal = acertos; fora da diagonal = confusões ({unit}).")
 
 
-def fig_per_class(runs, ds, labs):
+# --------------------------------------------------------------------------- #
+# 5) Acurácia por classe (gráfico de halteres: um ponto por modelo)
+# --------------------------------------------------------------------------- #
+def fig_per_class(runs, ds, a="MinhaCNN", b="ResNet18 (fine-tuning)"):
     cls = CLASSES[ds]
-    fig, ax = plt.subplots(figsize=(10, 4.6))
-    n = len(labs); w = 0.8 / n
-    x = np.arange(10)
-    for k, lab in enumerate(labs):
-        v = 100 * np.array(runs[(lab, ds)]["m"]["per_class_acc"])
-        ax.bar(x + (k - (n - 1) / 2) * w, v, width=w, color=style.COLORS[lab], label=lab,
-               edgecolor=style.SURFACE, linewidth=2)
-    lo = 70 if ds == "cifar10" else 97
-    ax.set_ylim(lo, 100)
-    ax.set_xticks(x, cls)
-    ax.set_ylabel("acurácia no teste (%)")
-    ax.grid(axis="x", visible=False)
-    ax.legend(loc="lower left", ncol=n)
-    m0 = 100 * np.array(runs[(labs[0], ds)]["m"]["per_class_acc"])
-    worst = int(m0.argmin())
-    ax.annotate(f"pior classe da {labs[0]}: {cls[worst]} ({br(m0[worst], 1)}%)",
-                (worst, m0[worst]), xytext=(0, -22), textcoords="offset points",
-                ha="center", fontsize=8, color=style.INK2)
-    ax.set_title(f"Acurácia por classe — {DS_NAME[ds]} (eixo começa em {lo}%)", loc="left")
+    va = 100 * np.array(runs[(a, ds)]["m"]["per_class_acc"])
+    vb = 100 * np.array(runs[(b, ds)]["m"]["per_class_acc"])
+    order = np.argsort(va)[::-1]           # mais fácil no topo, mais difícil embaixo
+    fig, ax = plt.subplots(figsize=(10.5, 0.55 * len(cls) + 1.6))
+    y = np.arange(len(cls))
+    for yi, k in zip(y, order):
+        ax.plot([va[k], vb[k]], [yi, yi], color=style.AXIS, lw=3, zorder=1, solid_capstyle="round")
+    ax.scatter(va[order], y, s=110, color=style.COLORS[a], zorder=3, label=a,
+               edgecolor=style.SURFACE, linewidth=1.5)
+    ax.scatter(vb[order], y, s=110, color=style.COLORS[b], zorder=3, label=b,
+               edgecolor=style.SURFACE, linewidth=1.5)
+    xmax = 100.0
+    for yi, k in zip(y, order):
+        d = vb[k] - va[k]
+        ax.text(xmax + 0.4, yi, f"{'+' if d >= 0 else '−'}{br(abs(d), 1)} p.p.", va="center",
+                fontsize=10, color=style.INK if abs(d) >= 3 else style.INK2,
+                fontweight="bold" if abs(d) >= 3 else "normal")
+    ax.text(xmax + 0.4, -0.9, "diferença", fontsize=9, color=style.MUTED, va="center")
+    ax.set_yticks(y, [cls[k] for k in order], fontsize=11)
+    ax.invert_yaxis()
+    lo = np.floor(min(va.min(), vb.min()) / 2) * 2 - 1
+    ax.set_xlim(lo, xmax + 3.2)
+    ax.set_xticks([t for t in np.arange(np.ceil(lo / 2) * 2, xmax + 0.1, 2)])
+    ax.set_xlabel("acurácia no teste (%)")
+    ax.grid(axis="y", visible=False)
+    ax.legend(loc="upper left", frameon=True, facecolor=style.SURFACE, edgecolor=style.GRID,
+              fontsize=10)
+    ax.set_title(f"Acurácia por classe — {DS_NAME[ds]}", loc="left", fontsize=15,
+                 fontweight="bold", color=style.INK)
     fig.tight_layout()
-    fig.savefig(FIG / f"acuracia_por_classe_{ds}.png"); plt.close(fig)
+    finish(fig, f"acuracia_por_classe_{ds}.png",
+           f"Cada linha é uma classe; a barra cinza liga os dois modelos. "
+           f"À direita, quanto a {b} acerta a mais (p.p. = pontos percentuais).")
 
 
+# --------------------------------------------------------------------------- #
+# 6) Custo x desempenho
+# --------------------------------------------------------------------------- #
 def fig_cost(runs, ds="cifar10"):
-    fig, ax = plt.subplots(figsize=(8.5, 4.6))
+    fig, ax = plt.subplots(figsize=(10, 5.4))
     for lab in ordered(runs, ds):
         m = runs[(lab, ds)]["m"]
-        t = m["train_time_s"] / 60
-        a = 100 * m["test_acc"]
-        ax.scatter([t], [a], s=90, color=style.COLORS[lab], edgecolor=style.SURFACE, linewidth=2,
-                   zorder=3)
-        ax.annotate(f"{lab}\n{m['params'] / 1e6:.1f} M parâmetros".replace(".", ","), (t, a),
-                    xytext=(8, -2), textcoords="offset points", fontsize=8, color=style.INK2,
-                    va="center")
-    ax.set_xlabel("tempo de treino (min, RTX 3050 Laptop)")
+        t, a = m["train_time_s"] / 60, 100 * m["test_acc"]
+        ax.scatter([t], [a], s=180, color=style.COLORS[lab], edgecolor=style.SURFACE,
+                   linewidth=2, zorder=3)
+        ax.annotate(f"{lab}: {br(a)}%\n{br(m['params'] / 1e6, 1)} M parâmetros · "
+                    + f"{m['inference_img_per_s']:,.0f}".replace(",", ".") + " img/s",
+                    (t, a), xytext=(12, 0), textcoords="offset points", fontsize=9.5,
+                    color=style.INK2, va="center")
+    ax.set_xlabel("tempo total de treino (minutos, RTX 3050 Laptop)")
     ax.set_ylabel("acurácia no teste (%)")
-    ax.set_xlim(left=0, right=ax.get_xlim()[1] * 1.35)
-    ax.set_title(f"Custo x desempenho — {DS_NAME[ds]}", loc="left")
+    ax.set_xlim(0, ax.get_xlim()[1] * 1.55)
+    lo, hi = ax.get_ylim()
+    ax.set_ylim(lo - 0.3, hi + 0.5)
+    ax.set_title(f"Custo x desempenho — {DS_NAME[ds]}", loc="left", fontsize=15,
+                 fontweight="bold", color=style.INK)
     fig.tight_layout()
-    fig.savefig(FIG / f"custo_desempenho_{ds}.png"); plt.close(fig)
+    finish(fig, f"custo_desempenho_{ds}.png",
+           "img/s = imagens classificadas por segundo na inferência (quanto maior, mais rápido).")
 
 
+# --------------------------------------------------------------------------- #
+# 7) Exemplos de erros
+# --------------------------------------------------------------------------- #
 def fig_errors(runs, ds, lab="MinhaCNN", n=24):
     tag = runs[(lab, ds)]["tag"]
     p = np.load(RES / tag / "test_preds.npz")
     x, _ = get_splits(ds)["test"]
-    wrong = np.where(p["y_true"] != p["y_pred"])[0]
+    wrong_all = np.where(p["y_true"] != p["y_pred"])[0]
     conf = p["probs"].astype(np.float32).max(1)
-    wrong = wrong[np.argsort(-conf[wrong])][:n]          # erros mais "confiantes"
+    wrong = wrong_all[np.argsort(-conf[wrong_all])][:n]   # erros mais "confiantes"
     cols = 8; rows = int(np.ceil(len(wrong) / cols))
-    fig, axes = plt.subplots(rows, cols, figsize=(1.45 * cols, 2.0 * rows))
+    fig, axes = plt.subplots(rows, cols, figsize=(1.6 * cols, 2.15 * rows))
     cls = CLASSES[ds]
     for ax in axes.ravel():
         ax.axis("off")
@@ -266,15 +337,18 @@ def fig_errors(runs, ds, lab="MinhaCNN", n=24):
         img = x[i].numpy()
         ax.imshow(img[0] if img.shape[0] == 1 else img.transpose(1, 2, 0),
                   cmap="gray" if img.shape[0] == 1 else None, interpolation="nearest")
-        ax.set_title(f"real: {cls[p['y_true'][i]]}\nprev.: {cls[p['y_pred'][i]]} "
-                     f"({br(100 * conf[i], 0)}%)", fontsize=7, color=style.INK2)
-    fig.suptitle(f"{lab} — erros mais confiantes no teste do {DS_NAME[ds]} "
-                 f"({len(np.where(p['y_true'] != p['y_pred'])[0])} erros em {len(p['y_true'])})",
-                 fontsize=11, fontweight="bold", color=style.INK)
+        ax.set_title(f"real: {cls[p['y_true'][i]]}\nprevisto: {cls[p['y_pred'][i]]} "
+                     f"({br(100 * conf[i], 0)}%)", fontsize=8, color=style.INK2)
+    fig.suptitle(f"{lab}: os erros com maior confiança no teste do {DS_NAME[ds]} "
+                 f"({len(wrong_all)} erros em {len(p['y_true'])} imagens)",
+                 fontsize=13, fontweight="bold", color=style.INK)
     fig.tight_layout()
     fig.savefig(FIG / f"erros_{ds}.png"); plt.close(fig)
 
 
+# --------------------------------------------------------------------------- #
+# Tabelas e estatística
+# --------------------------------------------------------------------------- #
 def summary_table(runs):
     rows = []
     for ds in ["mnist", "cifar10"]:
@@ -293,7 +367,6 @@ def summary_table(runs):
                 "tempo_epoca_s": m["mean_epoch_time_s"],
                 "inferencia_img_s": m["inference_img_per_s"],
             })
-    import csv
     with open(RES / "resumo.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0])); w.writeheader(); w.writerows(rows)
     md = ["| Dataset | Modelo | Parâmetros | Épocas | Acurácia teste | F1 macro | "
@@ -349,20 +422,18 @@ def main():
     stats(runs)
     fig_test_error(runs)
     fig_val_curves(runs)
-    fig_train_vs_val(runs, "cifar10", ["MinhaCNN", "MinhaCNN sem regularização"],
-                     "regularizacao_cifar10.png",
-                     "Efeito da regularização na MinhaCNN (CIFAR-10)")
-    fig_train_vs_val(runs, "cifar10", ["MinhaCNN", "ResNet18 (fine-tuning)"],
-                     "treino_validacao_cifar10.png",
-                     "Treino x validação (acurácia) — CIFAR-10", split=True)
-    fig_train_vs_val(runs, "mnist", ["MinhaCNN", "ResNet18 (fine-tuning)"],
-                     "treino_validacao_mnist.png",
-                     "Treino x validação (acurácia) — MNIST", split=True)
+    fig_train_val(runs, "cifar10", ["MinhaCNN", "MinhaCNN sem regularização"],
+                  "regularizacao_cifar10.png",
+                  "Efeito da regularização na MinhaCNN (CIFAR-10)")
+    fig_train_val(runs, "cifar10", ["MinhaCNN", "ResNet18 (fine-tuning)"],
+                  "treino_validacao_cifar10.png", "Treino x validação — CIFAR-10")
+    fig_train_val(runs, "mnist", ["MinhaCNN", "ResNet18 (fine-tuning)"],
+                  "treino_validacao_mnist.png", "Treino x validação — MNIST")
     main_labs = ["MinhaCNN", "ResNet18 (fine-tuning)"]
     for ds in ["mnist", "cifar10"]:
         fig_confusion(runs, ds, [l for l in main_labs if (l, ds) in runs])
-        fig_per_class(runs, ds, [l for l in LABELS.values()
-                                 if (l, ds) in runs and l in main_labs + ["ResNet18 (extração)"]])
+        if all((l, ds) in runs for l in main_labs):
+            fig_per_class(runs, ds)
         fig_errors(runs, ds)
     fig_cost(runs, "cifar10")
     print("figuras salvas em", FIG)

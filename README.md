@@ -135,6 +135,7 @@ A validação sai do treino oficial, sorteada com seed 0. O teste é o split ofi
 | **Treino** | SGD com Nesterov, One-Cycle, precisão mista fp16 |
 | **Avaliação** | Acurácia, F1 macro, matriz de confusão, acurácia por classe, IC 95% e McNemar |
 | **Desafio** | Kernels, mapas de ativação, maximização de ativação, top imagens e Grad-CAM |
+| **Gráficos** | seaborn + matplotlib: escalas lineares, valores escritos nas curvas e no mesmo eixo entre painéis |
 | **Relatório** | Markdown convertido em DOCX e PDF por script próprio |
 | **Hardware** | RTX 3050 Laptop (6 GB); a execução completa leva cerca de 50 minutos |
 
@@ -174,11 +175,11 @@ Sem regularização a rede chega a 100% no treino em cerca de 20 épocas e a val
 
 ![Curvas de validação](figures/curvas_validacao.png)
 
-_**Curvas de validação** — a ResNet18 pré-treinada passa de 91% de validação no CIFAR-10 já na primeira época. A MinhaCNN leva cerca de 25 épocas para chegar a 87% e ainda melhorava na época 40._
+_**Curvas de validação** — CNNs próprias à esquerda e ResNet18 à direita, com o mesmo eixo vertical. A ResNet18 pré-treinada passa de 91% de validação no CIFAR-10 já na primeira época. A MinhaCNN leva cerca de 25 épocas para chegar a 87% e ainda melhorava na época 40._
 
 ![Efeito da regularização](figures/regularizacao_cifar10.png)
 
-_**Ablação** — sem regularização, a perda de treino cai para 10⁻⁴ enquanto a perda de validação sobe. Com regularização, treino e validação andam juntos._
+_**Ablação** — sem regularização, o treino chega a 100% e a validação para em 87%: a área sombreada mostra a diferença de 13 p.p. Com regularização, treino e validação andam juntos._
 
 ![Matrizes de confusão no CIFAR-10](figures/matriz_confusao_cifar10.png)
 
@@ -186,7 +187,7 @@ _**Matrizes de confusão** — a confusão mais frequente nas duas redes é gato
 
 ![Acurácia por classe](figures/acuracia_por_classe_cifar10.png)
 
-_**Acurácia por classe** — gato, pássaro e cachorro são as classes mais difíceis para todos os modelos. Os veículos são as mais fáceis._
+_**Acurácia por classe** — gato, pássaro e cachorro são as classes mais difíceis para os dois modelos. À direita, quanto a ResNet18 acerta a mais em cada classe: o ganho maior está nos animais._
 
 ![Erros mais confiantes](figures/erros_cifar10.png)
 

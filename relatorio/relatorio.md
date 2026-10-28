@@ -127,15 +127,15 @@ Com 10.000 imagens de teste, o intervalo de confiança de 95% da acurácia é de
 
 ### 4.2 Curvas de aprendizado
 
-![Acurácia e perda na validação por época. A ResNet18 pré-treinada já começa em um patamar muito mais alto; a MinhaCNN precisa de dezenas de épocas para convergir.](../figures/curvas_validacao.png)
+![Acurácia na validação por época. À esquerda, as CNNs próprias; à direita, as variantes da ResNet18, com o mesmo eixo vertical. A ResNet18 pré-treinada já começa em um patamar muito mais alto; a MinhaCNN precisa de dezenas de épocas para convergir.](../figures/curvas_validacao.png)
 
 A ResNet18 pré-treinada atinge 91,8% de validação no CIFAR-10 após **uma única época**, enquanto a MinhaCNN leva cerca de 25 épocas para chegar a 87%. A ResNet não está aprendendo a "ver" do zero: ela só reajusta características que já sabe extrair. A MinhaCNN ainda estava melhorando no fim do treino (melhor época: 39 de 40).
 
-![Acurácia de treino (linha fina, com aumento de dados e dropout ativos) e de validação (linha grossa) no CIFAR-10. Na MinhaCNN o treino fica abaixo da validação durante boa parte do treino, efeito da regularização.](../figures/treino_validacao_cifar10.png)
+![Acurácia de treino (linha clara, com aumento de dados e dropout ativos) e de validação (linha escura) no CIFAR-10; a área sombreada é a diferença entre as duas. Na MinhaCNN o treino fica abaixo da validação durante boa parte do treino, efeito da regularização.](../figures/treino_validacao_cifar10.png)
 
 ### 4.3 CIFAR-10: onde cada rede erra
 
-![Acurácia por classe no teste do CIFAR-10.](../figures/acuracia_por_classe_cifar10.png)
+![Acurácia por classe no teste do CIFAR-10, da classe mais fácil para a mais difícil. À direita, quanto a ResNet18 acerta a mais em cada classe.](../figures/acuracia_por_classe_cifar10.png)
 
 As redes têm o mesmo padrão de dificuldade: **gato**, **pássaro** e **cachorro** são as classes mais difíceis e os veículos, as mais fáceis. A maior vantagem da ResNet18 está justamente nos animais — pássaro (+7,6 p.p.), gato (+5,9 p.p.) e cachorro (+3,4 p.p.) —, enquanto em automóvel e caminhão a diferença é de 0,4 a 1,4 p.p. Não é coincidência: o ImageNet tem centenas de classes de animais (só de raças de cachorro são mais de cem), então a ResNet chega ao CIFAR-10 já sabendo distinguir pelagem, focinho e orelhas.
 
@@ -161,7 +161,7 @@ Por época, a ResNet18 a 224×224 é cerca de 10× mais lenta que a MinhaCNN (91
 
 ### 4.6 Efeito da regularização (ablação)
 
-![MinhaCNN com e sem regularização no CIFAR-10. Sem regularização a rede decora o treino (100% de acurácia, perda ~10⁻⁴) enquanto a validação estaciona em ~87%.](../figures/regularizacao_cifar10.png)
+![MinhaCNN com e sem regularização no CIFAR-10: acurácia de treino (linha clara) e de validação (linha escura). Sem regularização a rede decora o treino (100%) enquanto a validação para em ~87%; a diferença chega a 13 p.p.](../figures/regularizacao_cifar10.png)
 
 | MinhaCNN no CIFAR-10 | Acurácia de teste | Acurácia de treino | Gap | Perda de teste |
 |---|---:|---:|---:|---:|

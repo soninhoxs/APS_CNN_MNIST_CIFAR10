@@ -6,5 +6,6 @@ pandas
 pyarrow
 pillow
 matplotlib
+seaborn
 scikit-learn
 markdown-it-py   # só para gerar o relatório (DOCX/PDF)

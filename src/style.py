@@ -30,10 +30,18 @@ DIV = LinearSegmentedColormap.from_list("div_blue_red", ["#184f95", "#6da7ec", "
 
 
 def setup():
+    import seaborn as sns
+
+    # tema "whitegrid" do seaborn como base; por cima, a paleta e as fontes do projeto
+    sns.set_theme(context="notebook", style="whitegrid")
     plt.rcParams.update({
         "font.family": ["Segoe UI", "DejaVu Sans"],
-        "font.size": 10,
-        "axes.titlesize": 11,
+        "font.size": 11,
+        "axes.titlesize": 13,
+        "axes.labelsize": 11.5,
+        "xtick.labelsize": 10.5,
+        "ytick.labelsize": 10.5,
+        "axes.titlepad": 10,
         "axes.titleweight": "bold",
         "axes.titlecolor": INK,
         "axes.labelcolor": INK2,
@@ -51,7 +59,7 @@ def setup():
         "xtick.labelcolor": INK2,
         "ytick.labelcolor": INK2,
         "legend.frameon": False,
-        "legend.fontsize": 9,
+        "legend.fontsize": 10,
         "figure.facecolor": SURFACE,
         "axes.facecolor": SURFACE,
         "savefig.facecolor": SURFACE,
