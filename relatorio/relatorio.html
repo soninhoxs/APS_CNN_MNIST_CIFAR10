@@ -1,0 +1,487 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Redes Neurais Convolucionais no MNIST e no CIFAR-10: CNN própria x ResNet18 pré-treinada</title><style>
+@page { size: A4; margin: 22mm 20mm 20mm 20mm;
+        @bottom-center { content: counter(page); font: 9pt "Segoe UI", sans-serif; color: #898781; } }
+@page :first { @bottom-center { content: none; } }
+:root { --ink:#0b0b0b; --ink2:#52514e; --muted:#898781; --accent:#0d366b; --accent2:#184f95;
+        --rule:#e1e0d9; --surface:#ffffff; --code:#f0efec; }
+body { font-family: "Segoe UI", Calibri, system-ui, sans-serif; color: var(--ink);
+       background: var(--surface); font-size: 10.5pt; line-height: 1.5; margin: 0; }
+h1 { color: var(--accent); font-size: 24pt; text-align: center; margin: 60mm 0 6mm; line-height: 1.2; }
+h2 { color: var(--accent); font-size: 15pt; margin: 9mm 0 2mm; border-bottom: 1px solid var(--rule);
+     padding-bottom: 1mm; break-after: avoid; }
+h3 { color: var(--accent2); font-size: 12pt; margin: 6mm 0 1.5mm; break-after: avoid; }
+h4 { color: #256abf; font-size: 11pt; margin: 4mm 0 1mm; break-after: avoid; }
+p { text-align: justify; margin: 0 0 2.5mm; }
+p.subtitle { text-align: center; color: var(--ink2); font-size: 12.5pt; margin: 1.5mm 0; }
+.fig { display: block; text-align: center; margin: 4mm 0 5mm; break-inside: avoid; }
+.fig img { max-width: 100%; max-height: 205mm; }
+.fig .cap { display: block; font-size: 8.8pt; color: var(--ink2); margin-top: 1.5mm; }
+table { border-collapse: collapse; width: 100%; font-size: 8.4pt; margin: 2mm 0 5mm;
+        break-inside: avoid; font-variant-numeric: tabular-nums; }
+th, td { border: 1px solid #c3c2b7; padding: 1.2mm 1.6mm; }
+th { background: #e8eef7; text-align: left; }
+code { font-family: Consolas, monospace; font-size: 9pt; background: var(--code); padding: 0 1mm; }
+pre { background: var(--code); padding: 3mm; font-size: 8.5pt; white-space: pre-wrap; break-inside: avoid; }
+pre code { background: none; padding: 0; }
+blockquote { margin: 3mm 0; padding: 1mm 0 1mm 4mm; border-left: 3px solid #9ec5f4; color: var(--ink2); }
+ul, ol { margin: 0 0 3mm; padding-left: 7mm; } li { margin-bottom: 1mm; }
+.pb { break-after: page; }
+</style></head><body><h1>Redes Neurais Convolucionais no MNIST e no CIFAR-10: CNN própria x ResNet18 pré-treinada</h1>
+<p class="subtitle">Introdução à Aprendizagem Profunda — Atividade Prática Supervisionada (APS)</p>
+<p class="subtitle">Implementação de Redes Convolucionais</p>
+<p class="subtitle"><strong>Integrantes:</strong> <em>(preencher com os nomes do grupo)</em></p>
+<p class="subtitle"><strong>Repositório:</strong> <em>(preencher com o link do GitHub)</em></p>
+<p class="subtitle">Outubro de 2026</p>
+<div class="pb"></div>
+<h2>Resumo</h2>
+<p>Implementamos em PyTorch uma CNN própria (<strong>MinhaCNN</strong>, 1,18 milhão de parâmetros, com Batch Normalization, dropout, weight decay, aumento de dados e label smoothing), treinada do zero, e a comparamos com a <strong>ResNet18 pré-treinada no ImageNet</strong> (11,2 milhões de parâmetros) no MNIST e no CIFAR-10.</p>
+<ul>
+<li><strong>MNIST:</strong> a MinhaCNN obteve <strong>99,66%</strong> de acurácia no teste e a ResNet18 com <em>fine-tuning</em>, <strong>99,53%</strong>. A MinhaCNN foi ligeiramente melhor (13 erros a menos em 10.000 imagens; diferença pequena, mas significativa a 5% pelo teste de McNemar, p = 0,041): o problema está quase resolvido pelas duas.</li>
+<li><strong>CIFAR-10:</strong> a ResNet18 com <em>fine-tuning</em> obteve <strong>95,46%</strong>, contra <strong>92,43%</strong> da MinhaCNN (40% menos erros). A vantagem vem principalmente do <strong>pré-treino</strong>: a mesma ResNet18 treinada do zero, no mesmo protocolo, ficou em 86,92%.</li>
+<li>A MinhaCNN é <strong>9,5× menor</strong> e faz inferência <strong>12× mais rápido</strong> (19.235 contra 1.567 imagens/s). A regularização foi decisiva para ela: sem regularização a acurácia no CIFAR-10 cai para 86,17%, com 100% no treino (<em>overfitting</em>).</li>
+<li>No desafio, as visualizações mostram a hierarquia esperada: bordas e cores na 1ª camada, texturas no meio e, no último bloco, neurônios que respondem a objetos de uma única classe (carros, rostos de cachorro, pássaros, caminhões).</li>
+</ul>
+<h2>1. Introdução e objetivo</h2>
+<p>Na atividade anterior implementamos um perceptron multicamadas (MLP). Um MLP trata a imagem como um vetor: cada pixel se liga a todos os neurônios da camada seguinte, a rede não sabe que pixels vizinhos estão relacionados e precisa reaprender o mesmo padrão em cada posição. As redes convolucionais (CNNs) resolvem isso com três ideias: <strong>conectividade local</strong> (cada neurônio olha uma pequena janela), <strong>compartilhamento de pesos</strong> (o mesmo kernel percorre a imagem inteira, então um detector de borda funciona em qualquer posição) e <strong>hierarquia</strong> (camadas mais profundas combinam padrões simples em padrões complexos, com o <em>pooling</em> aumentando o campo receptivo).</p>
+<p>O objetivo deste trabalho é:</p>
+<ol>
+<li>implementar uma CNN própria em PyTorch, com técnicas de regularização, e treiná-la do zero no MNIST e no CIFAR-10;</li>
+<li>comparar seu desempenho preditivo com uma rede pré-treinada conhecida — a <strong>ResNet18</strong> treinada no ImageNet, disponível no <code>torchvision</code>;</li>
+<li>explicar as razões das diferenças observadas e propor melhorias para a nossa CNN;</li>
+<li>(desafio) visualizar os kernels e as ativações para entender o que cada neurônio aprende.</li>
+</ol>
+<h2>2. Conjuntos de dados</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>MNIST</th>
+<th>CIFAR-10</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Conteúdo</td>
+<td>dígitos manuscritos 0–9</td>
+<td>objetos em 10 classes (avião, automóvel, pássaro, gato, cervo, cachorro, sapo, cavalo, navio, caminhão)</td>
+</tr>
+<tr>
+<td>Imagens</td>
+<td>28×28, tons de cinza</td>
+<td>32×32, coloridas (RGB)</td>
+</tr>
+<tr>
+<td>Treino / teste oficiais</td>
+<td>60.000 / 10.000</td>
+<td>50.000 / 10.000</td>
+</tr>
+<tr>
+<td>Divisão usada (treino / validação / teste)</td>
+<td>55.000 / 5.000 / 10.000</td>
+<td>45.000 / 5.000 / 10.000</td>
+</tr>
+<tr>
+<td>Fonte</td>
+<td>Hugging Face <code>ylecun/mnist</code> (Parquet)</td>
+<td>Krizhevsky (2009), espelho oficial <code>uoft-cs/cifar10</code> no Hugging Face</td>
+</tr>
+</tbody>
+</table>
+<p>As 5.000 imagens de validação foram sorteadas do treino oficial com semente fixa. A validação foi usada para acompanhar o treino e escolher o melhor checkpoint (<em>early stopping</em> por seleção de época); o <strong>conjunto de teste só foi usado uma vez, no final</strong>, para os números reportados.</p>
+<p>O MNIST é um problema &quot;fácil&quot;: fundo uniforme, objeto centralizado e normalizado em tamanho. O CIFAR-10 é bem mais difícil: imagens pequenas de objetos reais, com fundo variado, mudanças de pose, escala e iluminação, e classes visualmente próximas (gato x cachorro, automóvel x caminhão).</p>
+<p>Usamos o espelho do CIFAR-10 no Hugging Face por ser muito mais rápido de baixar, mas também baixamos a versão binária original de Toronto e conferimos por <em>hash</em> que os dois contêm exatamente as mesmas 60.000 imagens e rótulos (o conjunto de teste é idêntico inclusive na ordem; o de treino está apenas em outra ordem).</p>
+<h2>3. Metodologia</h2>
+<h3>3.1 Arquitetura da CNN própria (MinhaCNN)</h3>
+<p>A MinhaCNN segue o estilo VGG: três blocos com duas convoluções 3×3 cada, seguidas de <em>max-pooling</em> 2×2 e <em>dropout</em> espacial. O número de filtros dobra a cada bloco (64 → 128 → 256) enquanto a resolução cai pela metade. No final, um <em>Global Average Pooling</em> (GAP) resume cada mapa de características em um número, e uma pequena cabeça MLP — a mesma ideia da atividade anterior — faz a classificação. A mesma arquitetura é usada nos dois conjuntos; só muda o número de canais de entrada (1 no MNIST, 3 no CIFAR-10).</p>
+<table>
+<thead>
+<tr>
+<th>Camada</th>
+<th>Saída (CIFAR-10)</th>
+<th>Saída (MNIST)</th>
+<th style="text-align:right">Parâmetros</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Conv 3×3, 64 + BN + ReLU</td>
+<td>64×32×32</td>
+<td>64×28×28</td>
+<td style="text-align:right">1.856 (704 no MNIST)</td>
+</tr>
+<tr>
+<td>Conv 3×3, 64 + BN + ReLU</td>
+<td>64×32×32</td>
+<td>64×28×28</td>
+<td style="text-align:right">36.992</td>
+</tr>
+<tr>
+<td>MaxPool 2×2 + Dropout2d (p=0,1)</td>
+<td>64×16×16</td>
+<td>64×14×14</td>
+<td style="text-align:right">0</td>
+</tr>
+<tr>
+<td>Conv 3×3, 128 + BN + ReLU</td>
+<td>128×16×16</td>
+<td>128×14×14</td>
+<td style="text-align:right">73.984</td>
+</tr>
+<tr>
+<td>Conv 3×3, 128 + BN + ReLU</td>
+<td>128×16×16</td>
+<td>128×14×14</td>
+<td style="text-align:right">147.712</td>
+</tr>
+<tr>
+<td>MaxPool 2×2 + Dropout2d (p=0,1)</td>
+<td>128×8×8</td>
+<td>128×7×7</td>
+<td style="text-align:right">0</td>
+</tr>
+<tr>
+<td>Conv 3×3, 256 + BN + ReLU</td>
+<td>256×8×8</td>
+<td>256×7×7</td>
+<td style="text-align:right">295.424</td>
+</tr>
+<tr>
+<td>Conv 3×3, 256 + BN + ReLU</td>
+<td>256×8×8</td>
+<td>256×7×7</td>
+<td style="text-align:right">590.336</td>
+</tr>
+<tr>
+<td>MaxPool 2×2 + Dropout2d (p=0,2)</td>
+<td>256×4×4</td>
+<td>256×3×3</td>
+<td style="text-align:right">0</td>
+</tr>
+<tr>
+<td>Global Average Pooling</td>
+<td>256</td>
+<td>256</td>
+<td style="text-align:right">0</td>
+</tr>
+<tr>
+<td>Linear 256→128 + BN + ReLU + Dropout (p=0,3)</td>
+<td>128</td>
+<td>128</td>
+<td style="text-align:right">33.024</td>
+</tr>
+<tr>
+<td>Linear 128→10</td>
+<td>10</td>
+<td>10</td>
+<td style="text-align:right">1.290</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td></td>
+<td></td>
+<td style="text-align:right"><strong>1.180.618</strong> (1.179.466 no MNIST)</td>
+</tr>
+</tbody>
+</table>
+<p>O GAP no lugar de &quot;achatar&quot; o mapa 256×4×4 reduz muito o número de parâmetros da parte densa (33 mil em vez de mais de 500 mil) e já funciona como regularizador.</p>
+<h3>3.2 Técnicas de regularização</h3>
+<ul>
+<li><strong>Batch Normalization</strong> após cada convolução: estabiliza e acelera o treino e adiciona um leve ruído de regularização (estatísticas por lote).</li>
+<li><strong>Dropout espacial (Dropout2d)</strong> ao fim de cada bloco: desliga canais inteiros, forçando redundância entre os detectores; <strong>Dropout</strong> comum (p=0,3) na cabeça densa.</li>
+<li><strong>Weight decay</strong> (L2, 5×10⁻⁴) nos pesos das convoluções e camadas lineares (não em BN e vieses).</li>
+<li><strong>Aumento de dados (data augmentation)</strong>, feito na GPU: no CIFAR-10, recorte aleatório com <em>padding</em> de 4 pixels e espelhamento horizontal; no MNIST, pequenas rotações (±10°), translações (±8%) e escalas (0,9–1,1) — sem espelhamento, que trocaria o significado de alguns dígitos.</li>
+<li><strong>Label smoothing</strong> (0,1): o alvo da classe correta passa a ser 0,91 em vez de 1, desencorajando a rede de ficar confiante demais.</li>
+<li><strong>Seleção do melhor checkpoint pela validação</strong> (equivalente a <em>early stopping</em>).</li>
+</ul>
+<p>Para medir o efeito dessas técnicas, treinamos também uma <strong>ablação</strong>: a mesma MinhaCNN no CIFAR-10, com o mesmo número de épocas, mas sem aumento de dados, sem dropout, sem weight decay e sem label smoothing (mantivemos a BN, necessária para a estabilidade do treino).</p>
+<h3>3.3 Treinamento</h3>
+<p>Otimizador SGD com momento de Nesterov (0,9), lotes de 128 imagens e política de taxa de aprendizado <em>One-Cycle</em> (sobe até o máximo nos primeiros 25% do treino e depois decai suavemente), com precisão mista (fp16) para acelerar. A MinhaCNN foi treinada por 15 épocas no MNIST e 40 no CIFAR-10, com taxa máxima de 0,1.</p>
+<h3>3.4 Rede pré-treinada: ResNet18 (ImageNet)</h3>
+<p>Escolhemos a <strong>ResNet18</strong> (He et al., 2016) com os pesos <code>IMAGENET1K_V1</code> do <code>torchvision</code>. Ela usa conexões residuais (atalhos que somam a entrada de um bloco à sua saída), o que facilita o fluxo do gradiente e permite redes profundas. Entre as opções sugeridas, é a de melhor custo-benefício para a nossa GPU de 6 GB: a VGG16 tem 138 milhões de parâmetros e a ResNet50, 25 milhões, contra 11,2 milhões da ResNet18; a AlexNet é mais antiga e menos precisa no ImageNet.</p>
+<p>Adaptação aos nossos dados: a imagem é ampliada por interpolação bilinear para <strong>224×224</strong> (a resolução em que a rede foi pré-treinada), o MNIST em tons de cinza é replicado nos 3 canais, aplica-se a normalização do ImageNet e a última camada (1000 classes) é trocada por uma nova camada linear 512→10. O aumento de dados é o mesmo da MinhaCNN, aplicado antes da ampliação.</p>
+<p>Avaliamos três formas de usar a ResNet18:</p>
+<ol>
+<li><strong>Fine-tuning completo:</strong> todos os pesos são ajustados, partindo do ImageNet (taxa máxima 0,01, weight decay 10⁻⁴; 5 épocas no CIFAR-10 e 3 no MNIST).</li>
+<li><strong>Extração de características:</strong> o <em>backbone</em> fica congelado e só a nova camada final é treinada (5 épocas, taxa 0,1). Mede o quanto as características do ImageNet já servem &quot;como estão&quot;.</li>
+<li><strong>Controle — ResNet18 do zero:</strong> a mesma rede e a mesma resolução 224×224, mas com pesos aleatórios, 5 épocas no CIFAR-10. Isola o efeito do pré-treino do efeito da arquitetura.</li>
+</ol>
+<h3>3.5 Ambiente</h3>
+<p>Notebook com GPU NVIDIA GeForce RTX 3050 Laptop (6 GB), Windows 11, Python 3.11, PyTorch 2.7.1 com CUDA 12.6. Os dados ficam inteiros na memória da GPU e o aumento de dados é feito em lote na própria GPU, o que elimina o gargalo de carregamento.</p>
+<h2>4. Resultados</h2>
+<h3>4.1 Visão geral</h3>
+<table>
+<thead>
+<tr>
+<th>Dataset</th>
+<th>Modelo</th>
+<th style="text-align:right">Parâmetros (treináveis)</th>
+<th style="text-align:right">Épocas</th>
+<th style="text-align:right">Acurácia teste</th>
+<th style="text-align:right">F1 macro</th>
+<th style="text-align:right">Acc. treino</th>
+<th style="text-align:right">Gap</th>
+<th style="text-align:right">Tempo de treino</th>
+<th style="text-align:right">Inferência (img/s)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MNIST</td>
+<td>MinhaCNN</td>
+<td style="text-align:right">1,18 M</td>
+<td style="text-align:right">15</td>
+<td style="text-align:right"><strong>99,66%</strong></td>
+<td style="text-align:right">0,9966</td>
+<td style="text-align:right">99,82%</td>
+<td style="text-align:right">0,2 p.p.</td>
+<td style="text-align:right">2,1 min</td>
+<td style="text-align:right">25.064</td>
+</tr>
+<tr>
+<td>MNIST</td>
+<td>ResNet18 (fine-tuning)</td>
+<td style="text-align:right">11,18 M</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right"><strong>99,53%</strong></td>
+<td style="text-align:right">0,9953</td>
+<td style="text-align:right">99,71%</td>
+<td style="text-align:right">0,2 p.p.</td>
+<td style="text-align:right">5,8 min</td>
+<td style="text-align:right">1.573</td>
+</tr>
+<tr>
+<td>MNIST</td>
+<td>ResNet18 (extração)</td>
+<td style="text-align:right">11,18 M (5.130)</td>
+<td style="text-align:right">5</td>
+<td style="text-align:right">96,31%</td>
+<td style="text-align:right">0,9627</td>
+<td style="text-align:right">96,59%</td>
+<td style="text-align:right">0,3 p.p.</td>
+<td style="text-align:right">3,8 min</td>
+<td style="text-align:right">1.571</td>
+</tr>
+<tr>
+<td>CIFAR-10</td>
+<td>MinhaCNN</td>
+<td style="text-align:right">1,18 M</td>
+<td style="text-align:right">40</td>
+<td style="text-align:right"><strong>92,43%</strong></td>
+<td style="text-align:right">0,9240</td>
+<td style="text-align:right">98,16%</td>
+<td style="text-align:right">5,7 p.p.</td>
+<td style="text-align:right">6,1 min</td>
+<td style="text-align:right">19.235</td>
+</tr>
+<tr>
+<td>CIFAR-10</td>
+<td>ResNet18 (fine-tuning)</td>
+<td style="text-align:right">11,18 M</td>
+<td style="text-align:right">5</td>
+<td style="text-align:right"><strong>95,46%</strong></td>
+<td style="text-align:right">0,9545</td>
+<td style="text-align:right">98,68%</td>
+<td style="text-align:right">3,2 p.p.</td>
+<td style="text-align:right">8,0 min</td>
+<td style="text-align:right">1.567</td>
+</tr>
+<tr>
+<td>CIFAR-10</td>
+<td>ResNet18 (extração)</td>
+<td style="text-align:right">11,18 M (5.130)</td>
+<td style="text-align:right">5</td>
+<td style="text-align:right">86,97%</td>
+<td style="text-align:right">0,8691</td>
+<td style="text-align:right">88,55%</td>
+<td style="text-align:right">1,6 p.p.</td>
+<td style="text-align:right">2,8 min</td>
+<td style="text-align:right">1.568</td>
+</tr>
+<tr>
+<td>CIFAR-10</td>
+<td>ResNet18 do zero</td>
+<td style="text-align:right">11,18 M</td>
+<td style="text-align:right">5</td>
+<td style="text-align:right">86,92%</td>
+<td style="text-align:right">0,8686</td>
+<td style="text-align:right">89,62%</td>
+<td style="text-align:right">2,7 p.p.</td>
+<td style="text-align:right">7,9 min</td>
+<td style="text-align:right">1.568</td>
+</tr>
+<tr>
+<td>CIFAR-10</td>
+<td>MinhaCNN sem regularização</td>
+<td style="text-align:right">1,18 M</td>
+<td style="text-align:right">40</td>
+<td style="text-align:right">86,17%</td>
+<td style="text-align:right">0,8616</td>
+<td style="text-align:right">100,00%</td>
+<td style="text-align:right">13,8 p.p.</td>
+<td style="text-align:right">6,0 min</td>
+<td style="text-align:right">19.043</td>
+</tr>
+</tbody>
+</table>
+<p><em>Acc. treino</em> é a acurácia no conjunto de treino sem aumento de dados nem dropout, e <em>Gap</em> é a diferença entre ela e a acurácia de teste (medida de <em>overfitting</em>). Tempos medidos na RTX 3050 Laptop; inferência em lotes de 256 imagens com fp16.</p>
+<p>Com 10.000 imagens de teste, o intervalo de confiança de 95% da acurácia é de cerca de ±0,1 ponto percentual (p.p.) no MNIST e ±0,5 p.p. no CIFAR-10. Para comparar os modelos usamos o <strong>teste de McNemar</strong>, que olha as imagens em que um modelo acerta e o outro erra: no CIFAR-10, das imagens em que só um dos dois acerta, 479 são acertos só da ResNet18 e 176 só da MinhaCNN (p &lt; 0,001: diferença <strong>significativa</strong>); no MNIST, são 24 acertos só da MinhaCNN contra 11 só da ResNet18 (p = 0,041: diferença significativa ao nível de 5%, embora pequena em termos absolutos).</p>
+<p><span class="fig"><img src="../figures/comparacao_erro_teste.png" alt=""><span class="cap"><b>Figura 1 —</b> Erro no conjunto de teste de cada modelo (menor é melhor). No MNIST os erros ficam abaixo de 0,5% para os modelos ajustados por completo; no CIFAR-10 as diferenças são grandes.</span></span></p>
+<h3>4.2 Curvas de aprendizado</h3>
+<p><span class="fig"><img src="../figures/curvas_validacao.png" alt=""><span class="cap"><b>Figura 2 —</b> Acurácia e perda na validação por época. A ResNet18 pré-treinada já começa em um patamar muito mais alto; a MinhaCNN precisa de dezenas de épocas para convergir.</span></span></p>
+<p>A ResNet18 pré-treinada atinge 91,8% de validação no CIFAR-10 após <strong>uma única época</strong>, enquanto a MinhaCNN leva cerca de 25 épocas para chegar a 87%. A ResNet não está aprendendo a &quot;ver&quot; do zero: ela só reajusta características que já sabe extrair. A MinhaCNN ainda estava melhorando no fim do treino (melhor época: 39 de 40).</p>
+<p><span class="fig"><img src="../figures/treino_validacao_cifar10.png" alt=""><span class="cap"><b>Figura 3 —</b> Acurácia de treino (linha fina, com aumento de dados e dropout ativos) e de validação (linha grossa) no CIFAR-10. Na MinhaCNN o treino fica abaixo da validação durante boa parte do treino, efeito da regularização.</span></span></p>
+<h3>4.3 CIFAR-10: onde cada rede erra</h3>
+<p><span class="fig"><img src="../figures/acuracia_por_classe_cifar10.png" alt=""><span class="cap"><b>Figura 4 —</b> Acurácia por classe no teste do CIFAR-10.</span></span></p>
+<p>As redes têm o mesmo padrão de dificuldade: <strong>gato</strong>, <strong>pássaro</strong> e <strong>cachorro</strong> são as classes mais difíceis e os veículos, as mais fáceis. A maior vantagem da ResNet18 está justamente nos animais — pássaro (+7,6 p.p.), gato (+5,9 p.p.) e cachorro (+3,4 p.p.) —, enquanto em automóvel e caminhão a diferença é de 0,4 a 1,4 p.p. Não é coincidência: o ImageNet tem centenas de classes de animais (só de raças de cachorro são mais de cem), então a ResNet chega ao CIFAR-10 já sabendo distinguir pelagem, focinho e orelhas.</p>
+<p><span class="fig"><img src="../figures/matriz_confusao_cifar10.png" alt=""><span class="cap"><b>Figura 5 —</b> Matrizes de confusão no teste do CIFAR-10 (porcentagem de cada classe real). A confusão mais frequente nas duas redes é gato → cachorro.</span></span></p>
+<p>A confusão dominante é <strong>gato → cachorro</strong> (9,1% dos gatos na MinhaCNN) e, no sentido contrário, cachorro → gato; em seguida vêm automóvel ↔ caminhão e avião ↔ navio (fundos de céu e de água parecidos).</p>
+<p><span class="fig"><img src="../figures/erros_cifar10.png" alt=""><span class="cap"><b>Figura 6 —</b> Os 24 erros mais confiantes da MinhaCNN no CIFAR-10. Muitos são imagens ambíguas a 32×32 pixels (um navio com céu ao fundo, uma picape vermelha) ou têm o objeto pequeno e camuflado no fundo.</span></span></p>
+<h3>4.4 MNIST</h3>
+<p><span class="fig"><img src="../figures/matriz_confusao_mnist.png" alt=""><span class="cap"><b>Figura 7 —</b> Matrizes de confusão no teste do MNIST (número de imagens). Os poucos erros se concentram em pares como 9→4, 5→3 e 6→0, de traços parecidos.</span></span></p>
+<p><span class="fig"><img src="../figures/erros_mnist.png" alt=""><span class="cap"><b>Figura 8 —</b> Os erros mais confiantes da MinhaCNN no MNIST: em vários deles o rótulo oficial é discutível mesmo para um humano.</span></span></p>
+<p>No MNIST as redes erram só 34 (MinhaCNN) e 47 (ResNet18 com fine-tuning) das 10.000 imagens de teste. Boa parte dos erros restantes são dígitos mal escritos ou com rótulo discutível, então há pouco espaço real para melhoria.</p>
+<h3>4.5 Custo computacional</h3>
+<p><span class="fig"><img src="../figures/custo_desempenho_cifar10.png" alt=""><span class="cap"><b>Figura 9 —</b> Acurácia no teste do CIFAR-10 versus tempo total de treino. O tamanho do modelo aparece no rótulo de cada ponto.</span></span></p>
+<p>Por época, a ResNet18 a 224×224 é cerca de 10× mais lenta que a MinhaCNN (91 s contra 9 s) e, na inferência, 12× mais lenta. Como converge em poucas épocas, o tempo total de treino acaba parecido (8,0 contra 6,1 minutos), mas o custo de usar o modelo continua 12× maior. A ampliação de 32×32 para 224×224 multiplica por 49 o número de pixels processados.</p>
+<h3>4.6 Efeito da regularização (ablação)</h3>
+<p><span class="fig"><img src="../figures/regularizacao_cifar10.png" alt=""><span class="cap"><b>Figura 10 —</b> MinhaCNN com e sem regularização no CIFAR-10. Sem regularização a rede decora o treino (100% de acurácia, perda ~10⁻⁴) enquanto a validação estaciona em ~87%.</span></span></p>
+<table>
+<thead>
+<tr>
+<th>MinhaCNN no CIFAR-10</th>
+<th style="text-align:right">Acurácia de teste</th>
+<th style="text-align:right">Acurácia de treino</th>
+<th style="text-align:right">Gap</th>
+<th style="text-align:right">Perda de teste</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Com regularização</td>
+<td style="text-align:right">92,43%</td>
+<td style="text-align:right">98,16%</td>
+<td style="text-align:right">5,7 p.p.</td>
+<td style="text-align:right">0,303</td>
+</tr>
+<tr>
+<td>Sem regularização</td>
+<td style="text-align:right">86,17%</td>
+<td style="text-align:right">100,00%</td>
+<td style="text-align:right">13,8 p.p.</td>
+<td style="text-align:right">0,765</td>
+</tr>
+</tbody>
+</table>
+<p>Sem regularização a rede memoriza o treino em ~20 épocas e deixa de generalizar: a perda de teste fica 2,5× maior e a acurácia cai 6,3 p.p. A regularização reduziu o gap a menos da metade e rendeu mais do que a diferença entre a MinhaCNN e a ResNet18.</p>
+<h2>5. Discussão: por que esses resultados?</h2>
+<p><strong>1. O pré-treino é a principal vantagem da ResNet18 no CIFAR-10.</strong> A ResNet18 viu 1,28 milhão de imagens do ImageNet antes do CIFAR-10; a MinhaCNN viu só 45 mil. O experimento de controle isola esse efeito: a <strong>mesma ResNet18</strong>, na mesma resolução e com o mesmo número de épocas, mas partindo de pesos aleatórios, ficou em <strong>86,92%</strong>, contra 95,46% com pré-treino. Não é a arquitetura nem o tamanho da rede que explicam a diferença — é o conhecimento transferido. As camadas iniciais aprendidas no ImageNet (bordas, cores, texturas) são genéricas e servem para qualquer imagem natural (Yosinski et al., 2014); só as finais precisam ser reajustadas.</p>
+<p><strong>2. Extração de características x fine-tuning.</strong> Congelando o <em>backbone</em> e treinando só a última camada, a ResNet18 obteve 86,97% no CIFAR-10 e 96,31% no MNIST. A extração de características fica 8,5 p.p. abaixo do fine-tuning no CIFAR-10 e 3,2 p.p. abaixo no MNIST. As características do ImageNet já separam razoavelmente animais e veículos, mas foram aprendidas em fotos coloridas de alta resolução, não em traços de dígitos ampliados de 28×28 — por isso o MNIST é o que mais precisa que o <em>backbone</em> seja reajustado. Mesmo treinando só 5.130 parâmetros (a camada final), a extração chega a 86,97% no CIFAR-10, abaixo da MinhaCNN treinada do zero; o fine-tuning completo, que adapta também as camadas intermediárias, é o que leva a ResNet18 além da MinhaCNN.</p>
+<p><strong>3. O CIFAR-10 se parece com o ImageNet; o MNIST, não.</strong> As classes do CIFAR-10 (animais e veículos) existem no ImageNet, e por isso o ganho do pré-treino é maior justamente nos animais (seção 4.3). Dígitos brancos sobre fundo preto não se parecem com fotos: no MNIST o pré-treino não trouxe vantagem, e a MinhaCNN, menor e treinada direto na resolução original, foi até ligeiramente melhor que a ResNet18.</p>
+<p><strong>4. Capacidade e resolução.</strong> A ResNet18 tem 9,5× mais parâmetros, 18 camadas com atalhos residuais e processa a imagem ampliada para 224×224. A ampliação não cria informação nova, mas casa a escala dos objetos com a que os filtros pré-treinados esperam. O preço é o custo: 12× mais lenta na inferência.</p>
+<p><strong>5. O MNIST está saturado.</strong> Com erros abaixo de 0,5%, as diferenças entre modelos são de poucas dezenas de imagens (p = 0,041 entre MinhaCNN e ResNet18, no limite da significância). O que sobra são dígitos ambíguos, que nenhuma arquitetura resolve.</p>
+<p><strong>6. Viés indutivo da convolução e regularização.</strong> Mesmo pequena, a MinhaCNN chega a 92% no CIFAR-10 — bem acima do que um MLP costuma atingir nesse conjunto (na faixa de 50–60%) — porque a convolução embute duas suposições corretas sobre imagens: padrões são locais e podem aparecer em qualquer posição. Mas, treinada do zero em poucos dados, ela depende de regularização forte para não decorar o treino (seção 4.6).</p>
+<h2>6. Como melhorar o desempenho da MinhaCNN</h2>
+<p>As propostas abaixo estão ordenadas pelo que esperamos ser a melhor relação ganho/esforço no CIFAR-10 (no MNIST há pouco espaço: o erro já está perto do limite de rótulos ambíguos).</p>
+<ol>
+<li><strong>Treinar por mais tempo.</strong> A MinhaCNN ainda melhorava na época 40 (melhor época: 39) e o gap treino-teste é moderado (5,7 p.p.), sinais de que ela não saturou. Receitas comuns para CIFAR-10 usam de 100 a 200 épocas.</li>
+<li><strong>Aumento de dados mais forte.</strong> <em>Cutout</em>/<em>Random Erasing</em> (apagar um quadrado aleatório da imagem), RandAugment/AutoAugment e <em>MixUp</em>/<em>CutMix</em> (misturar pares de imagens e rótulos) atacam justamente as confusões entre classes parecidas e costumam render de 1 a 3 pontos percentuais no CIFAR-10 em redes desse porte.</li>
+<li><strong>Conexões residuais e mais profundidade/largura.</strong> Transformar cada bloco em um bloco residual (como na ResNet) permite empilhar mais camadas sem degradar o treino. Uma ResNet18 adaptada para 32×32 (primeira convolução 3×3 sem <em>stride</em> e sem o <em>max-pool</em> inicial), treinada do zero com receita longa, chega a cerca de 95% no CIFAR-10.</li>
+<li><strong>Destilação de conhecimento.</strong> Usar a ResNet18 <em>fine-tuned</em> (o &quot;professor&quot;) para gerar rótulos suaves e treinar a MinhaCNN (o &quot;aluno&quot;) para imitá-los (Hinton et al., 2015). O aluno herda parte do conhecimento do ImageNet mantendo o custo de inferência baixo — exatamente o <em>trade-off</em> que este trabalho evidencia.</li>
+<li><strong>Pré-treino.</strong> Pré-treinar a MinhaCNN em um conjunto maior (por exemplo, um subconjunto do ImageNet reduzido a 32×32) ou com aprendizado auto-supervisionado, e depois fazer <em>fine-tuning</em>.</li>
+<li><strong>Truques de avaliação e otimização.</strong> Média exponencial dos pesos (EMA) ou SWA, <em>test-time augmentation</em> (média das previsões da imagem original e espelhada), <em>ensemble</em> de algumas MinhaCNNs (cada uma custa ~6 minutos), otimizadores como SAM, e uma busca sistemática de hiperparâmetros (taxa de aprendizado, weight decay, taxas de dropout) usando a validação.</li>
+<li><strong>Mais resolução de entrada.</strong> Parte da vantagem da ResNet vem de processar a imagem ampliada; a MinhaCNN poderia usar 64×64 com um bloco a mais, ao custo de ~4× mais computação.</li>
+</ol>
+<h2>7. Desafio: o que os kernels e os neurônios aprendem</h2>
+<p>Usamos cinco técnicas complementares (todas em <code>src/activations.py</code>): (1) os pesos da primeira camada, (2) os mapas de ativação de cada bloco para uma imagem, (3) a maximização de ativação — sintetizar, por gradiente ascendente, a imagem que mais excita um canal (Erhan et al., 2009) —, (4) as imagens reais do teste que mais ativam cada canal (Zeiler e Fergus, 2014) e (5) o Grad-CAM, que mostra quais regiões pesaram na decisão (Selvaraju et al., 2017).</p>
+<h3>7.1 Kernels da primeira camada</h3>
+<p><span class="fig"><img src="../figures/desafio_kernels_minhacnn.png" alt=""><span class="cap"><b>Figura 11 —</b> Os 64 kernels 3×3 da primeira convolução da MinhaCNN. No MNIST (à esquerda), a maioria tem um lado positivo e outro negativo: são detectores de borda e de traço em diferentes direções. No CIFAR-10 (à direita), aparecem também detectores de cor.</span></span></p>
+<p>Kernels 3×3 são pequenos demais para mostrar formas, mas o padrão é claro: no MNIST, quase todos combinam pesos positivos (vermelho) e negativos (azul) em lados opostos — respondem à transição claro/escuro de uma borda numa direção específica. No CIFAR-10, parte dos kernels responde a cores (verde, magenta, azul) e parte a contrastes de luminosidade.</p>
+<p><span class="fig"><img src="../figures/desafio_kernels_resnet18.png" alt=""><span class="cap"><b>Figura 12 —</b> Os 64 kernels 7×7 da primeira camada da ResNet18 antes e depois do fine-tuning no CIFAR-10. São filtros de Gabor (bordas orientadas em várias frequências) e manchas de cor oponente; o fine-tuning mudou esses pesos em apenas 3,3%.</span></span></p>
+<p>Os kernels 7×7 da ResNet18 mostram o resultado clássico: filtros de bordas orientadas parecidos com filtros de Gabor e detectores de cores oponentes (verde × magenta, azul × amarelo) — o mesmo tipo de detector encontrado no córtex visual primário. Após o fine-tuning, eles mudaram só <strong>3,3%</strong> (norma relativa): as primeiras camadas são genéricas e quase não precisam de ajuste, o que explica por que o pré-treino transfere tão bem.</p>
+<h3>7.2 Mapas de ativação</h3>
+<p><span class="fig"><img src="../figures/desafio_mapas_ativacao_cifar10.png" alt=""><span class="cap"><b>Figura 13 —</b> Ativações da MinhaCNN para um cavalo do CIFAR-10. Bloco 1 (32×32): bordas e contornos, a imagem ainda é reconhecível. Bloco 2 (16×16): respostas mais esparsas a partes. Bloco 3 (8×8): poucos pontos, sobre o corpo do cavalo.</span></span></p>
+<p><span class="fig"><img src="../figures/desafio_mapas_ativacao_mnist.png" alt=""><span class="cap"><b>Figura 14 —</b> Ativações da MinhaCNN para um dígito 7. No bloco 1 cada canal destaca um traço (o horizontal de cima, a diagonal, as bordas). No bloco 3, além das respostas ao dígito, vários canais disparam na borda direita/inferior da imagem.</span></span></p>
+<p>Vemos a hierarquia típica das CNNs: o bloco 1 funciona como um banco de detectores de bordas (cada canal acende para uma orientação — no &quot;7&quot;, um canal pega só o traço horizontal, outro só a diagonal); conforme a resolução cai, as ativações ficam mais esparsas e abstratas, e no bloco 3 cada canal responde a uma região do objeto. Um efeito curioso no MNIST: vários canais do bloco 3 respondem à <strong>borda da imagem</strong>. O <em>zero-padding</em> das convoluções deixa a borda &quot;visível&quot; para a rede, que a usa como referência de posição — fenômeno descrito por Islam et al. (2020).</p>
+<h3>7.3 O padrão que cada neurônio procura (maximização de ativação)</h3>
+<p><span class="fig"><img src="../figures/desafio_maximizacao_cifar10.png" alt=""><span class="cap"><b>Figura 15 —</b> Imagens sintetizadas que maximizam canais da MinhaCNN no CIFAR-10. Bloco 1: cores puras e grades de bordas orientadas. Bloco 2: listras, curvas e texturas coloridas. Bloco 3: texturas complexas e partes repetidas.</span></span></p>
+<p><span class="fig"><img src="../figures/desafio_maximizacao_mnist.png" alt=""><span class="cap"><b>Figura 16 —</b> O mesmo para a MinhaCNN do MNIST. Bloco 1: listras em orientações diferentes (detectores de traço). Blocos 2 e 3: curvas, cantos e combinações de traços.</span></span></p>
+<p>Partindo de ruído, ajustamos os pixels da imagem para maximizar a ativação média de um canal (antes da ReLU), com regularização de suavidade (variação total, desfoque e pequenos deslocamentos aleatórios) para obter padrões legíveis. A complexidade cresce com a profundidade: no bloco 1 os canais querem só uma cor ou uma orientação de borda; no bloco 2, listras curvas e texturas; no bloco 3, padrões mais elaborados que lembram partes de objetos.</p>
+<p><span class="fig"><img src="../figures/desafio_classes_mnist.png" alt=""><span class="cap"><b>Figura 17 —</b> Imagens sintetizadas que levam a MinhaCNN a prever cada classe com confiança próxima de 100%.</span></span></p>
+<p><span class="fig"><img src="../figures/desafio_classes_cifar10.png" alt=""><span class="cap"><b>Figura 18 —</b> O mesmo para o CIFAR-10: a rede tem 100% de confiança em imagens que, para nós, não parecem os objetos.</span></span></p>
+<p>Quando maximizamos a saída de cada classe, alguns traços aparecem (um traço vertical para o &quot;1&quot;, um laço para o &quot;9&quot;, tons de pelagem marrom para cervo e cavalo), mas a rede atinge 98–100% de confiança com imagens que não se parecem com os objetos. Isso mostra que a rede decide com base em combinações de texturas e partes locais, e não numa &quot;forma global&quot; como nós — a mesma fragilidade explorada pelos exemplos adversariais.</p>
+<h3>7.4 Imagens reais que mais ativam cada neurônio</h3>
+<p><span class="fig"><img src="../figures/desafio_top_imagens_cifar10.png" alt=""><span class="cap"><b>Figura 19 —</b> Para os canais mais seletivos do bloco 3 da MinhaCNN, as 8 imagens do teste que mais os ativam. Há canais que respondem só a carros, só a rostos de cachorro, só a pássaros e só a caminhões.</span></span></p>
+<p>Esta é a visualização mais interpretável. Para cada um dos 256 canais do bloco 3 pegamos as 50 imagens de teste com maior ativação e medimos a fração que pertence à classe mais comum. Os 6 canais mostrados têm <strong>100%</strong> das 50 imagens de uma mesma classe — o canal 60, por exemplo, responde a rostos de cachorro vistos de frente; o 201 e o 70, a carros (de frente e de lado); o 187, a caminhões. Na média dos 256 canais, <strong>75,8%</strong> das imagens de topo são da mesma classe. A rede nunca recebeu a instrução &quot;detecte rostos de cachorro&quot; — só os rótulos das imagens —, mas aprendeu sozinha detectores de partes e de objetos no último bloco.</p>
+<h3>7.5 Para onde cada rede olha (Grad-CAM)</h3>
+<p><span class="fig"><img src="../figures/desafio_gradcam_cifar10.png" alt=""><span class="cap"><b>Figura 20 —</b> Grad-CAM no CIFAR-10. A imagem é escurecida onde a contribuição para a classe prevista é baixa. A MinhaCNN se apoia em pontos pequenos e discriminativos; a ResNet18 usa o objeto inteiro.</span></span></p>
+<p>O Grad-CAM pondera os mapas do último bloco pelo gradiente da classe prevista. A MinhaCNN baseia a decisão em regiões pequenas e muito discriminativas — o olho e o cabresto do cavalo, o focinho do cachorro, o corpo do avião —, enquanto a ResNet18 distribui a atenção pelo objeto inteiro (o gato todo, o corpo do sapo). No pássaro (um avestruz de frente), a MinhaCNN olhou só o bico, que lembra uma grade de carro, e errou para &quot;automóvel&quot;; a ResNet18, olhando a cabeça inteira, acertou. Depender de poucas pistas locais torna a rede menor mais frágil a oclusões e fundos enganosos, e é coerente com o que vimos na maximização de classes.</p>
+<h2>8. Conclusão</h2>
+<p>A CNN implementada pelo grupo, com 1,18 milhão de parâmetros e treinada do zero em ~6 minutos, atingiu <strong>99,66%</strong> no MNIST e <strong>92,43%</strong> no CIFAR-10. A ResNet18 pré-treinada no ImageNet ficou ligeiramente atrás no MNIST (99,53%) e foi melhor no CIFAR-10 (<strong>95,46%</strong>), com a vantagem concentrada nas classes de animais. Os experimentos de controle mostram que essa vantagem vem do <strong>conhecimento transferido do ImageNet</strong>, e não da arquitetura em si: a mesma ResNet18 sem pré-treino ficou em 86,92%. Em contrapartida, a MinhaCNN é 9,5× menor e 12× mais rápida na inferência, e a regularização foi essencial para ela (+6,3 p.p. no CIFAR-10).</p>
+<p>As visualizações confirmam a teoria vista em aula: as CNNs aprendem uma hierarquia de características — bordas e cores, depois texturas e partes, e por fim detectores de objetos — e as primeiras camadas são tão genéricas que quase não mudam no fine-tuning. Os caminhos mais promissores para melhorar a MinhaCNN são treinar por mais tempo com aumento de dados mais forte, adicionar conexões residuais e usar destilação a partir da própria ResNet18.</p>
+<h2>9. Reprodutibilidade e repositório</h2>
+<p>Todo o código está no repositório do grupo <em>(link)</em>. Estrutura principal:</p>
+<table>
+<thead>
+<tr>
+<th>Arquivo</th>
+<th>Função</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>run_all.py</code></td>
+<td>executa todos os experimentos em sequência e gera as figuras</td>
+</tr>
+<tr>
+<td><code>download_data.py</code></td>
+<td>baixa MNIST e CIFAR-10 para <code>data/raw/</code></td>
+</tr>
+<tr>
+<td><code>src/data.py</code></td>
+<td>leitura dos dados, divisão treino/validação/teste, aumento de dados na GPU</td>
+</tr>
+<tr>
+<td><code>src/models.py</code></td>
+<td>MinhaCNN e ResNet18 (torchvision)</td>
+</tr>
+<tr>
+<td><code>src/train.py</code></td>
+<td>treino e avaliação de um experimento (linha de comando)</td>
+</tr>
+<tr>
+<td><code>src/plots.py</code></td>
+<td>gráficos e tabela-resumo (<code>results/resumo.csv</code>)</td>
+</tr>
+<tr>
+<td><code>src/activations.py</code></td>
+<td>desafio: kernels, mapas de ativação, maximização de ativação, Grad-CAM</td>
+</tr>
+<tr>
+<td><code>src/make_report.py</code></td>
+<td>gera este relatório em DOCX e PDF a partir do Markdown</td>
+</tr>
+</tbody>
+</table>
+<p>Para reproduzir: <code>pip install -r requirements.txt</code>, depois <code>python download_data.py</code> e <code>python run_all.py</code> (cerca de 1 hora numa RTX 3050 Laptop). Cada experimento grava em <code>results/&lt;nome&gt;/</code> o histórico por época (<code>history.json</code>), as métricas finais (<code>metrics.json</code>) e as previsões no teste (<code>test_preds.npz</code>); os logs ficam em <code>logs/</code>. As sementes aleatórias são fixas, mas o uso de <code>cudnn.benchmark</code> e de precisão mista pode causar variações pequenas (da ordem de décimos de ponto percentual) entre execuções.</p>
+<h2>Referências</h2>
+<ul>
+<li>DEVRIES, T.; TAYLOR, G. W. Improved Regularization of Convolutional Neural Networks with Cutout. arXiv:1708.04552, 2017.</li>
+<li>ERHAN, D. et al. Visualizing Higher-Layer Features of a Deep Network. Universidade de Montreal, Relatório Técnico 1341, 2009.</li>
+<li>HE, K. et al. Deep Residual Learning for Image Recognition. CVPR, 2016.</li>
+<li>HINTON, G.; VINYALS, O.; DEAN, J. Distilling the Knowledge in a Neural Network. arXiv:1503.02531, 2015.</li>
+<li>IOFFE, S.; SZEGEDY, C. Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift. ICML, 2015.</li>
+<li>ISLAM, M. A.; JIA, S.; BRUCE, N. D. B. How Much Position Information Do Convolutional Neural Networks Encode? ICLR, 2020.</li>
+<li>KORNBLITH, S.; SHLENS, J.; LE, Q. V. Do Better ImageNet Models Transfer Better? CVPR, 2019.</li>
+<li>KRIZHEVSKY, A. Learning Multiple Layers of Features from Tiny Images. Universidade de Toronto, 2009.</li>
+<li>LECUN, Y. et al. Gradient-Based Learning Applied to Document Recognition. Proceedings of the IEEE, 1998.</li>
+<li>SELVARAJU, R. R. et al. Grad-CAM: Visual Explanations from Deep Networks via Gradient-Based Localization. ICCV, 2017.</li>
+<li>SIMONYAN, K.; ZISSERMAN, A. Very Deep Convolutional Networks for Large-Scale Image Recognition. ICLR, 2015.</li>
+<li>SMITH, L. N.; TOPIN, N. Super-Convergence: Very Fast Training of Neural Networks Using Large Learning Rates. 2019.</li>
+<li>SRIVASTAVA, N. et al. Dropout: A Simple Way to Prevent Neural Networks from Overfitting. JMLR, 2014.</li>
+<li>SZEGEDY, C. et al. Rethinking the Inception Architecture for Computer Vision (label smoothing). CVPR, 2016.</li>
+<li>TOMPSON, J. et al. Efficient Object Localization Using Convolutional Networks (Spatial Dropout). CVPR, 2015.</li>
+<li>YOSINSKI, J. et al. How Transferable Are Features in Deep Neural Networks? NeurIPS, 2014.</li>
+<li>ZEILER, M. D.; FERGUS, R. Visualizing and Understanding Convolutional Networks. ECCV, 2014.</li>
+<li>ZHANG, H. et al. mixup: Beyond Empirical Risk Minimization. ICLR, 2018.</li>
+</ul>
+</body></html>

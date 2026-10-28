@@ -1,0 +1,7 @@
+[resnet18_scratch_cifar10] params=11,181,642 treináveis=11,181,642 treino=45000 val=5000 teste=10000
+[resnet18_scratch_cifar10] ep 01/5 treino loss 1.6164 acc 0.4122 | val loss 1.6453 acc 0.4288 | 94.0s
+[resnet18_scratch_cifar10] ep 02/5 treino loss 1.0140 acc 0.6537 | val loss 1.1040 acc 0.6250 | 90.2s
+[resnet18_scratch_cifar10] ep 03/5 treino loss 0.7514 acc 0.7603 | val loss 0.7760 acc 0.7410 | 90.2s
+[resnet18_scratch_cifar10] ep 04/5 treino loss 0.6130 acc 0.8135 | val loss 0.5689 acc 0.8224 | 90.2s
+[resnet18_scratch_cifar10] ep 05/5 treino loss 0.4874 acc 0.8626 | val loss 0.4449 acc 0.8734 | 90.2s
+[resnet18_scratch_cifar10] TESTE acc=0.8692 f1=0.8686 (melhor época 5) tempo=7.9 min | inferência 1568 img/s

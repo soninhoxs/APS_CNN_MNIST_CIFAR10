@@ -1,0 +1,7 @@
+[resnet18_frozen_mnist] params=11,181,642 treináveis=5,130 treino=55000 val=5000 teste=10000
+[resnet18_frozen_mnist] ep 01/5 treino loss 0.4787 acc 0.8936 | val loss 0.4257 acc 0.8694 | 62.7s
+[resnet18_frozen_mnist] ep 02/5 treino loss 0.4992 acc 0.9111 | val loss 0.3485 acc 0.9124 | 36.1s
+[resnet18_frozen_mnist] ep 03/5 treino loss 0.2532 acc 0.9574 | val loss 0.2720 acc 0.9534 | 36.1s
+[resnet18_frozen_mnist] ep 04/5 treino loss 0.2095 acc 0.9752 | val loss 0.2555 acc 0.9646 | 36.1s
+[resnet18_frozen_mnist] ep 05/5 treino loss 0.2060 acc 0.9777 | val loss 0.2534 acc 0.9650 | 36.4s
+[resnet18_frozen_mnist] TESTE acc=0.9631 f1=0.9627 (melhor época 5) tempo=3.8 min | inferência 1571 img/s

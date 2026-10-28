@@ -1,0 +1,10 @@
+# Testado com Python 3.11, torch 2.7.1+cu126 e torchvision 0.22.1 (GPU NVIDIA, CUDA 12.6)
+torch>=2.5
+torchvision>=0.20
+numpy
+pandas
+pyarrow
+pillow
+matplotlib
+scikit-learn
+markdown-it-py   # só para gerar o relatório (DOCX/PDF)

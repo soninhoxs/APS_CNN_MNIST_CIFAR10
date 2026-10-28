@@ -1,0 +1,5 @@
+kernels ok; variação relativa conv1 ResNet: 0.03333055600523949
+mapas de ativação ok
+maximização ok
+top imagens ok {201: 1.0, 60: 1.0, 61: 1.0, 197: 1.0, 70: 1.0, 187: 1.0} pureza média de todos os canais: 0.758
+grad-cam ok

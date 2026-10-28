@@ -1,0 +1,8 @@
+# dados brutos/processados (baixados pelos scripts)
+data/
+# pesos treinados (ResNet18 ~45 MB cada)
+checkpoints/
+*.pt
+__pycache__/
+*.pyc
+.ipynb_checkpoints/

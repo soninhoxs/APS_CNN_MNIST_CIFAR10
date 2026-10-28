@@ -1,0 +1,9 @@
+[resnet18_frozen_cifar10] params=11,181,642 treináveis=5,130 treino=45000 val=5000 teste=10000
+C:\Users\soninho\anaconda3\envs\coco_nlp\Lib\site-packages\torch\optim\lr_scheduler.py:182: UserWarning: Detected call of `lr_scheduler.step()` before `optimizer.step()`. In PyTorch 1.1.0 and later, you should call them in the opposite order: `optimizer.step()` before `lr_scheduler.step()`.  Failure to do this will result in PyTorch skipping the first value of the learning rate schedule. See more details at https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
+  warnings.warn(
+[resnet18_frozen_cifar10] ep 01/5 treino loss 0.9427 acc 0.7388 | val loss 1.2137 acc 0.7218 | 31.2s
+[resnet18_frozen_cifar10] ep 02/5 treino loss 1.6378 acc 0.7070 | val loss 1.5177 acc 0.7272 | 29.6s
+[resnet18_frozen_cifar10] ep 03/5 treino loss 0.8860 acc 0.7586 | val loss 0.6169 acc 0.7944 | 29.6s
+[resnet18_frozen_cifar10] ep 04/5 treino loss 0.5498 acc 0.8294 | val loss 0.4727 acc 0.8590 | 29.6s
+[resnet18_frozen_cifar10] ep 05/5 treino loss 0.4926 acc 0.8599 | val loss 0.4414 acc 0.8732 | 29.6s
+[resnet18_frozen_cifar10] TESTE acc=0.8697 f1=0.8691 (melhor época 5) tempo=2.8 min | inferência 1568 img/s

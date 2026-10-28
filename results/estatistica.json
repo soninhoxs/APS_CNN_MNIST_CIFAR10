@@ -1,0 +1,142 @@
+{
+ "ic95": {
+  "MNIST | MinhaCNN": [
+   0.9952527658079837,
+   0.9975658329990986
+  ],
+  "MNIST | ResNet18 (fine-tuning)": [
+   0.9937560806377167,
+   0.9964635166018075
+  ],
+  "MNIST | ResNet18 (extração)": [
+   0.9592236761703433,
+   0.9666206514727492
+  ],
+  "CIFAR-10 | MinhaCNN": [
+   0.9189509557933052,
+   0.929323171218062
+  ],
+  "CIFAR-10 | ResNet18 (fine-tuning)": [
+   0.9503421534156026,
+   0.9585087024396121
+  ],
+  "CIFAR-10 | ResNet18 (extração)": [
+   0.8629597593922874,
+   0.8761563017816519
+  ],
+  "CIFAR-10 | ResNet18 do zero": [
+   0.8624492134626864,
+   0.8756672317237306
+  ],
+  "CIFAR-10 | MinhaCNN sem regularização": [
+   0.8547947703185246,
+   0.8683274350550592
+  ]
+ },
+ "mcnemar": [
+  {
+   "dataset": "MNIST",
+   "a": "MinhaCNN",
+   "b": "ResNet18 (fine-tuning)",
+   "so_a_acerta": 24,
+   "so_b_acerta": 11,
+   "p_valor": 0.040959591511636986
+  },
+  {
+   "dataset": "MNIST",
+   "a": "MinhaCNN",
+   "b": "ResNet18 (extração)",
+   "so_a_acerta": 348,
+   "so_b_acerta": 13,
+   "p_valor": 1.0092783909351897e-85
+  },
+  {
+   "dataset": "MNIST",
+   "a": "ResNet18 (fine-tuning)",
+   "b": "ResNet18 (extração)",
+   "so_a_acerta": 338,
+   "so_b_acerta": 16,
+   "p_valor": 1.1785739982519029e-79
+  },
+  {
+   "dataset": "CIFAR-10",
+   "a": "MinhaCNN",
+   "b": "ResNet18 (fine-tuning)",
+   "so_a_acerta": 176,
+   "so_b_acerta": 479,
+   "p_valor": 2.609959277900225e-33
+  },
+  {
+   "dataset": "CIFAR-10",
+   "a": "MinhaCNN",
+   "b": "ResNet18 (extração)",
+   "so_a_acerta": 894,
+   "so_b_acerta": 348,
+   "p_valor": 9.332931346009617e-56
+  },
+  {
+   "dataset": "CIFAR-10",
+   "a": "MinhaCNN",
+   "b": "ResNet18 do zero",
+   "so_a_acerta": 752,
+   "so_b_acerta": 201,
+   "p_valor": 1.8698651272133527e-75
+  },
+  {
+   "dataset": "CIFAR-10",
+   "a": "MinhaCNN",
+   "b": "MinhaCNN sem regularização",
+   "so_a_acerta": 882,
+   "so_b_acerta": 256,
+   "p_valor": 6.402854133669014e-81
+  },
+  {
+   "dataset": "CIFAR-10",
+   "a": "ResNet18 (fine-tuning)",
+   "b": "ResNet18 (extração)",
+   "so_a_acerta": 976,
+   "so_b_acerta": 127,
+   "p_valor": 9.447392710360364e-163
+  },
+  {
+   "dataset": "CIFAR-10",
+   "a": "ResNet18 (fine-tuning)",
+   "b": "ResNet18 do zero",
+   "so_a_acerta": 979,
+   "so_b_acerta": 125,
+   "p_valor": 8.896025919455585e-165
+  },
+  {
+   "dataset": "CIFAR-10",
+   "a": "ResNet18 (fine-tuning)",
+   "b": "MinhaCNN sem regularização",
+   "so_a_acerta": 1082,
+   "so_b_acerta": 153,
+   "p_valor": 1.1196817945829471e-172
+  },
+  {
+   "dataset": "CIFAR-10",
+   "a": "ResNet18 (extração)",
+   "b": "ResNet18 do zero",
+   "so_a_acerta": 720,
+   "so_b_acerta": 715,
+   "p_valor": 0.9159103047885193
+  },
+  {
+   "dataset": "CIFAR-10",
+   "a": "ResNet18 (extração)",
+   "b": "MinhaCNN sem regularização",
+   "so_a_acerta": 839,
+   "so_b_acerta": 759,
+   "p_valor": 0.04809419645548355
+  },
+  {
+   "dataset": "CIFAR-10",
+   "a": "ResNet18 do zero",
+   "b": "MinhaCNN sem regularização",
+   "so_a_acerta": 574,
+   "so_b_acerta": 499,
+   "p_valor": 0.02383352133216445
+  }
+ ]
+}

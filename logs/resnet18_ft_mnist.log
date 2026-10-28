@@ -1,0 +1,7 @@
+[resnet18_ft_mnist] params=11,181,642 treináveis=11,181,642 treino=55000 val=5000 teste=10000
+C:\Users\soninho\anaconda3\envs\coco_nlp\Lib\site-packages\torch\optim\lr_scheduler.py:182: UserWarning: Detected call of `lr_scheduler.step()` before `optimizer.step()`. In PyTorch 1.1.0 and later, you should call them in the opposite order: `optimizer.step()` before `lr_scheduler.step()`.  Failure to do this will result in PyTorch skipping the first value of the learning rate schedule. See more details at https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
+  warnings.warn(
+[resnet18_ft_mnist] ep 01/3 treino loss 0.3389 acc 0.9354 | val loss 0.1551 acc 0.9920 | 114.0s
+[resnet18_ft_mnist] ep 02/3 treino loss 0.1235 acc 0.9942 | val loss 0.1142 acc 0.9954 | 110.2s
+[resnet18_ft_mnist] ep 03/3 treino loss 0.1165 acc 0.9959 | val loss 0.1134 acc 0.9960 | 110.1s
+[resnet18_ft_mnist] TESTE acc=0.9953 f1=0.9953 (melhor época 3) tempo=5.8 min | inferência 1573 img/s
