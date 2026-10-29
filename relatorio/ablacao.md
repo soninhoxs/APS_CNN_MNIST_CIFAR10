@@ -4,7 +4,7 @@
 
 {{subtitle}}Estudo de Ablação — continuação da APS de Redes Convolucionais
 
-{{subtitle}}**Integrantes:** _(preencher com os nomes do grupo)_
+{{subtitle}}**Integrante:** João Henrique dos Santos Silva
 
 {{subtitle}}**Repositório:** https://github.com/soninhoxs/APS_CNN_MNIST_CIFAR10
 

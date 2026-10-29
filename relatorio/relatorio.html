@@ -29,8 +29,8 @@ ul, ol { margin: 0 0 3mm; padding-left: 7mm; } li { margin-bottom: 1mm; }
 </style></head><body><h1>Redes Neurais Convolucionais no MNIST e no CIFAR-10: CNN própria x ResNet18 pré-treinada</h1>
 <p class="subtitle">Introdução à Aprendizagem Profunda — Atividade Prática Supervisionada (APS)</p>
 <p class="subtitle">Implementação de Redes Convolucionais</p>
-<p class="subtitle"><strong>Integrantes:</strong> <em>(preencher com os nomes do grupo)</em></p>
-<p class="subtitle"><strong>Repositório:</strong> <em>(preencher com o link do GitHub)</em></p>
+<p class="subtitle"><strong>Integrante:</strong> João Henrique dos Santos Silva</p>
+<p class="subtitle"><strong>Repositório:</strong> https://github.com/soninhoxs/APS_CNN_MNIST_CIFAR10</p>
 <p class="subtitle">Outubro de 2026</p>
 <div class="pb"></div>
 <h2>Resumo</h2>
@@ -419,7 +419,7 @@ ul, ol { margin: 0 0 3mm; padding-left: 7mm; } li { margin-bottom: 1mm; }
 <p>A CNN implementada pelo grupo, com 1,18 milhão de parâmetros e treinada do zero em ~6 minutos, atingiu <strong>99,66%</strong> no MNIST e <strong>92,43%</strong> no CIFAR-10. A ResNet18 pré-treinada no ImageNet ficou ligeiramente atrás no MNIST (99,53%) e foi melhor no CIFAR-10 (<strong>95,46%</strong>), com a vantagem concentrada nas classes de animais. Os experimentos de controle mostram que essa vantagem vem do <strong>conhecimento transferido do ImageNet</strong>, e não da arquitetura em si: a mesma ResNet18 sem pré-treino ficou em 86,92%. Em contrapartida, a MinhaCNN é 9,5× menor e 12× mais rápida na inferência, e a regularização foi essencial para ela (+6,3 p.p. no CIFAR-10).</p>
 <p>As visualizações confirmam a teoria vista em aula: as CNNs aprendem uma hierarquia de características — bordas e cores, depois texturas e partes, e por fim detectores de objetos — e as primeiras camadas são tão genéricas que quase não mudam no fine-tuning. Os caminhos mais promissores para melhorar a MinhaCNN são treinar por mais tempo com aumento de dados mais forte, adicionar conexões residuais e usar destilação a partir da própria ResNet18.</p>
 <h2>9. Reprodutibilidade e repositório</h2>
-<p>Todo o código está no repositório do grupo <em>(link)</em>. Estrutura principal:</p>
+<p>Todo o código está no repositório https://github.com/soninhoxs/APS_CNN_MNIST_CIFAR10. Estrutura principal:</p>
 <table>
 <thead>
 <tr>

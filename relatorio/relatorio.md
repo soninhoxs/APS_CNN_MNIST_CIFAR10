@@ -4,9 +4,9 @@
 
 {{subtitle}}Implementação de Redes Convolucionais
 
-{{subtitle}}**Integrantes:** _(preencher com os nomes do grupo)_
+{{subtitle}}**Integrante:** João Henrique dos Santos Silva
 
-{{subtitle}}**Repositório:** _(preencher com o link do GitHub)_
+{{subtitle}}**Repositório:** https://github.com/soninhoxs/APS_CNN_MNIST_CIFAR10
 
 {{subtitle}}Outubro de 2026
 
@@ -256,7 +256,7 @@ As visualizações confirmam a teoria vista em aula: as CNNs aprendem uma hierar
 
 ## 9. Reprodutibilidade e repositório
 
-Todo o código está no repositório do grupo _(link)_. Estrutura principal:
+Todo o código está no repositório https://github.com/soninhoxs/APS_CNN_MNIST_CIFAR10. Estrutura principal:
 
 | Arquivo | Função |
 |---|---|
