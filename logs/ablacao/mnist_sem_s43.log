@@ -1,0 +1,17 @@
+[mnist_sem_s43] params=1,179,466 treináveis=1,179,466 treino=55000 val=5000 teste=10000
+[mnist_sem_s43] ep 01/15 treino loss 0.5801 acc 0.8456 | val loss 0.1265 acc 0.9854 | 10.1s
+[mnist_sem_s43] ep 02/15 treino loss 0.1803 acc 0.9817 | val loss 0.1068 acc 0.9910 | 8.9s
+[mnist_sem_s43] ep 03/15 treino loss 0.1507 acc 0.9889 | val loss 0.1025 acc 0.9940 | 8.9s
+[mnist_sem_s43] ep 04/15 treino loss 0.1392 acc 0.9913 | val loss 0.0959 acc 0.9936 | 8.9s
+[mnist_sem_s43] ep 05/15 treino loss 0.1318 acc 0.9934 | val loss 0.1096 acc 0.9930 | 8.9s
+[mnist_sem_s43] ep 06/15 treino loss 0.1273 acc 0.9940 | val loss 0.0944 acc 0.9960 | 8.9s
+[mnist_sem_s43] ep 07/15 treino loss 0.1246 acc 0.9951 | val loss 0.1019 acc 0.9946 | 8.9s
+[mnist_sem_s43] ep 08/15 treino loss 0.1223 acc 0.9956 | val loss 0.1107 acc 0.9920 | 8.8s
+[mnist_sem_s43] ep 09/15 treino loss 0.1212 acc 0.9954 | val loss 0.1095 acc 0.9952 | 8.9s
+[mnist_sem_s43] ep 10/15 treino loss 0.1178 acc 0.9965 | val loss 0.1019 acc 0.9954 | 8.8s
+[mnist_sem_s43] ep 11/15 treino loss 0.1149 acc 0.9971 | val loss 0.0989 acc 0.9962 | 8.9s
+[mnist_sem_s43] ep 12/15 treino loss 0.1116 acc 0.9982 | val loss 0.0955 acc 0.9966 | 8.9s
+[mnist_sem_s43] ep 13/15 treino loss 0.1084 acc 0.9991 | val loss 0.0986 acc 0.9964 | 8.9s
+[mnist_sem_s43] ep 14/15 treino loss 0.1063 acc 0.9996 | val loss 0.0966 acc 0.9968 | 8.9s
+[mnist_sem_s43] ep 15/15 treino loss 0.1052 acc 0.9997 | val loss 0.0971 acc 0.9970 | 8.9s
+[mnist_sem_s43] TESTE acc=0.9972 f1=0.9972 (melhor época 15) tempo=2.3 min | inferência 22691 img/s

@@ -1,0 +1,529 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Estudo de ablação: o aumento de dados na MinhaCNN (MNIST e CIFAR-10)</title><style>
+@page { size: A4; margin: 22mm 20mm 20mm 20mm;
+        @bottom-center { content: counter(page); font: 9pt "Segoe UI", sans-serif; color: #898781; } }
+@page :first { @bottom-center { content: none; } }
+:root { --ink:#0b0b0b; --ink2:#52514e; --muted:#898781; --accent:#0d366b; --accent2:#184f95;
+        --rule:#e1e0d9; --surface:#ffffff; --code:#f0efec; }
+body { font-family: "Segoe UI", Calibri, system-ui, sans-serif; color: var(--ink);
+       background: var(--surface); font-size: 10.5pt; line-height: 1.5; margin: 0; }
+h1 { color: var(--accent); font-size: 24pt; text-align: center; margin: 60mm 0 6mm; line-height: 1.2; }
+h2 { color: var(--accent); font-size: 15pt; margin: 9mm 0 2mm; border-bottom: 1px solid var(--rule);
+     padding-bottom: 1mm; break-after: avoid; }
+h3 { color: var(--accent2); font-size: 12pt; margin: 6mm 0 1.5mm; break-after: avoid; }
+h4 { color: #256abf; font-size: 11pt; margin: 4mm 0 1mm; break-after: avoid; }
+p { text-align: justify; margin: 0 0 2.5mm; }
+p.subtitle { text-align: center; color: var(--ink2); font-size: 12.5pt; margin: 1.5mm 0; }
+.fig { display: block; text-align: center; margin: 4mm 0 5mm; break-inside: avoid; }
+.fig img { max-width: 100%; max-height: 205mm; }
+.fig .cap { display: block; font-size: 8.8pt; color: var(--ink2); margin-top: 1.5mm; }
+table { border-collapse: collapse; width: 100%; font-size: 8.4pt; margin: 2mm 0 5mm;
+        break-inside: avoid; font-variant-numeric: tabular-nums; }
+th, td { border: 1px solid #c3c2b7; padding: 1.2mm 1.6mm; }
+th { background: #e8eef7; text-align: left; }
+code { font-family: Consolas, monospace; font-size: 9pt; background: var(--code); padding: 0 1mm; }
+pre { background: var(--code); padding: 3mm; font-size: 8.5pt; white-space: pre-wrap; break-inside: avoid; }
+pre code { background: none; padding: 0; }
+blockquote { margin: 3mm 0; padding: 1mm 0 1mm 4mm; border-left: 3px solid #9ec5f4; color: var(--ink2); }
+ul, ol { margin: 0 0 3mm; padding-left: 7mm; } li { margin-bottom: 1mm; }
+.pb { break-after: page; }
+</style></head><body><h1>Estudo de ablação: o aumento de dados na MinhaCNN (MNIST e CIFAR-10)</h1>
+<p class="subtitle">Introdução à Aprendizagem Profunda — Atividade Prática Supervisionada (APS)</p>
+<p class="subtitle">Estudo de Ablação — continuação da APS de Redes Convolucionais</p>
+<p class="subtitle"><strong>Integrantes:</strong> <em>(preencher com os nomes do grupo)</em></p>
+<p class="subtitle"><strong>Repositório:</strong> https://github.com/soninhoxs/APS_CNN_MNIST_CIFAR10</p>
+<p class="subtitle">Outubro de 2026</p>
+<div class="pb"></div>
+<h2>Resumo</h2>
+<p>Fizemos um estudo de ablação do <strong>aumento de dados</strong> (<em>data augmentation</em>) na MinhaCNN, a CNN própria da APS anterior. Treinamos a mesma rede com e sem esse componente, mantendo todo o resto igual, com 3 sementes por configuração e as mesmas métricas da APS anterior.</p>
+<ul>
+<li><strong>Componente escolhido:</strong> o aumento de dados — recorte aleatório e espelhamento no CIFAR-10; rotação, translação e escala no MNIST.</li>
+<li><strong>CIFAR-10:</strong> com aumento de dados a MinhaCNN acerta <strong>92,22% ± 0,18</strong>; sem ele, <strong>89,97% ± 0,20</strong>. São 22% menos erros (778 contra 1.003 em 10.000), e a diferença é significativa em todas as sementes (McNemar, p &lt; 10⁻¹³). Sem o componente a rede decora o treino (100% de acerto) e a diferença entre treino e teste sobe de 6,0 para 10,0 pontos percentuais. Ele explica 38% da queda que a APS anterior atribuía à &quot;regularização&quot; como um todo.</li>
+<li><strong>MNIST:</strong> <strong>99,68%</strong> com e <strong>99,70%</strong> sem — empate (p ≥ 0,58 em todas as sementes). O aumento de dados não melhora o teste do MNIST, que já vem centralizado e normalizado, mas torna a rede robusta a dígitos girados, deslocados e ampliados: +7 a +12 p.p. com rotação de 45° e +2,2 p.p. com 6 px de deslocamento.</li>
+<li><strong>Análise (desafio):</strong> no CIFAR-10, o espelhamento sozinho rende +1,8 p.p. e o recorte sozinho +1,3; os dois juntos, +2,4. A melhor intensidade do recorte fica entre ±2 e ±4 px. O ganho é maior nos animais (gato e cachorro, +3,8 p.p.). E é específico: contra ruído gaussiano, transformação que nenhum modelo viu no treino, os modelos com aumento de dados foram <em>menos</em> robustos.</li>
+<li><strong>Nossa opinião:</strong> no CIFAR-10 o componente é essencial e quase não custa nada — não acrescenta parâmetros, não muda a inferência e deixa a época cerca de 5% mais lenta. No MNIST ele não melhora a acurácia, mas vale pela robustez. Em nenhum dos dois casos ele é &quot;regularização genérica&quot;: funciona porque descreve as variações que o problema realmente tem, e por isso precisa ser escolhido para cada problema.</li>
+</ul>
+<h2>1. Qual o componente escolhido?</h2>
+<p>Escolhemos o <strong>aumento de dados</strong> (<em>data augmentation</em>) usado no treino da MinhaCNN, a CNN de 1,18 milhão de parâmetros da APS anterior. A cada época, cada imagem de treino passa por uma transformação aleatória antes de entrar na rede; validação e teste usam sempre a imagem original.</p>
+<ul>
+<li><strong>CIFAR-10:</strong> recorte aleatório de 32×32 depois de acrescentar 4 pixels de borda refletida (o objeto se desloca até 4 px em cada direção) e espelhamento horizontal com probabilidade 0,5.</li>
+<li><strong>MNIST:</strong> rotação de até ±10°, translação de até ±8% da largura (±2,2 px) e escala de 0,9 a 1,1. Não há espelhamento: um dígito espelhado deixa de ser o mesmo dígito.</li>
+</ul>
+<p>Recorte e espelhamento são o aumento de dados clássico das CNNs desde a AlexNet (Krizhevsky et al., 2012); pequenas transformações afins em dígitos manuscritos já eram usadas por Simard et al. (2003).</p>
+<p><span class="fig"><img src="../figures/ablacao_exemplos.png" alt=""><span class="cap"><b>Figura 1 —</b> O componente estudado: cada coluna é uma versão sorteada da mesma imagem. A rede nunca vê exatamente a mesma imagem duas vezes.</span></span></p>
+<p>Por que este componente:</p>
+<ol>
+<li><strong>A APS anterior deixou a pergunta em aberto.</strong> Lá, a MinhaCNN sem regularização perdeu 6,3 pontos percentuais (p.p.) no CIFAR-10 (92,43% → 86,17%). Mas aquela ablação desligou quatro técnicas de uma vez (aumento de dados, dropout, weight decay e label smoothing) e não dizia quanto vinha de cada uma. Isolar uma delas é o passo seguinte natural.</li>
+<li><strong>É o único regularizador que mexe nos dados, não no modelo.</strong> Dropout, weight decay e label smoothing restringem a rede; o aumento de dados acrescenta conhecimento sobre o problema: &quot;um gato deslocado ou espelhado continua sendo um gato&quot;. É a técnica que esperávamos ser a mais importante, e uma ablação serve justamente para testar essa expectativa.</li>
+<li><strong>A ablação é limpa.</strong> Ligar e desligar o aumento de dados não muda a arquitetura, o número de parâmetros nem o custo de inferência. A única diferença entre os modelos comparados é o que eles viram no treino — a condição que um estudo de ablação precisa para atribuir o efeito ao componente (Meyes et al., 2019).</li>
+</ol>
+<p><strong>Hipóteses, escritas antes dos resultados:</strong> (H1) sem o aumento de dados o erro de teste sobe bastante no CIFAR-10 e pouco no MNIST, que já está perto do limite; (H2) sem ele, a rede decora o treino e a diferença entre treino e teste cresce; (H3) o ganho vem da robustez às transformações usadas no treino (deslocamento, espelhamento, rotação), e não de uma robustez geral — um modelo treinado com aumento de dados não deveria ser mais robusto a ruído, transformação que ele nunca viu.</p>
+<h2>2. Protocolo experimental</h2>
+<p>Usamos o mesmo conjunto de dados, a mesma divisão e as mesmas métricas da APS anterior. <strong>Só o aumento de dados muda</strong> entre as duas configurações:</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Com aumento de dados</th>
+<th>Sem aumento de dados</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Arquitetura</td>
+<td>MinhaCNN, 1,18 M parâmetros</td>
+<td>igual</td>
+</tr>
+<tr>
+<td>Batch Normalization</td>
+<td>sim</td>
+<td>sim</td>
+</tr>
+<tr>
+<td>Dropout espacial / dropout na cabeça</td>
+<td>0,1 · 0,1 · 0,2 / 0,3</td>
+<td>igual</td>
+</tr>
+<tr>
+<td>Weight decay</td>
+<td>5×10⁻⁴</td>
+<td>igual</td>
+</tr>
+<tr>
+<td>Label smoothing</td>
+<td>0,1</td>
+<td>igual</td>
+</tr>
+<tr>
+<td>Otimização</td>
+<td>SGD Nesterov, One-Cycle até 0,1, lotes de 128, fp16</td>
+<td>igual</td>
+</tr>
+<tr>
+<td>Épocas</td>
+<td>15 (MNIST) e 40 (CIFAR-10)</td>
+<td>igual</td>
+</tr>
+<tr>
+<td><strong>Aumento de dados</strong></td>
+<td><strong>recorte + espelhamento (CIFAR-10); rotação, translação e escala (MNIST)</strong></td>
+<td><strong>nenhum</strong></td>
+</tr>
+<tr>
+<td>Sementes</td>
+<td>42, 43, 44</td>
+<td>42, 43, 44</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Dados:</strong> treino de 55.000 (MNIST) e 45.000 (CIFAR-10) imagens, validação de 5.000 sorteadas do treino oficial com semente fixa e o teste oficial de 10.000 imagens.</li>
+<li><strong>Seleção de modelo:</strong> o checkpoint de cada execução é a época de maior acurácia na validação; o teste é avaliado uma vez, com esse checkpoint.</li>
+<li><strong>Métricas (as da APS anterior):</strong> acurácia e F1 macro no teste, acurácia no treino medida sem aumento de dados e sem dropout, <em>gap</em> (treino − teste), perda de teste (entropia cruzada), acurácia por classe, intervalo de confiança de 95% e teste de McNemar entre os modelos.</li>
+<li><strong>Repetições:</strong> cada configuração principal foi treinada com <strong>3 sementes</strong>, para separar o efeito do componente da variação natural entre treinos. A semente 42 com aumento de dados é o próprio modelo da APS anterior (mesmo código e mesmos hiperparâmetros), reaproveitado sem retreinar.</li>
+<li><strong>Experimentos complementares (CIFAR-10, semente 42):</strong> cada parte do aumento sozinha (só espelhamento; só recorte) e a intensidade do recorte (±0, 2, 4, 6 e 8 px, sempre com espelhamento).</li>
+<li><strong>Testes de robustez (sem treino novo):</strong> os 12 modelos principais foram avaliados no teste transformado — deslocado, espelhado, girado, ampliado/reduzido — e, como controle, com ruído gaussiano.</li>
+</ul>
+<p>Ao todo foram 15 treinos novos, cerca de 75 minutos de GPU numa RTX 3050 Laptop (6 GB).</p>
+<h2>3. Quais os resultados com e sem o componente?</h2>
+<h3>3.1 Resultado principal</h3>
+<table>
+<thead>
+<tr>
+<th>Dataset</th>
+<th>Configuração</th>
+<th style="text-align:right">Acurácia teste</th>
+<th style="text-align:right">Erros (de 10.000)</th>
+<th style="text-align:right">F1 macro</th>
+<th style="text-align:right">Acc. treino</th>
+<th style="text-align:right">Gap</th>
+<th style="text-align:right">Perda teste</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MNIST</td>
+<td><strong>Com aumento de dados</strong></td>
+<td style="text-align:right">99,68% ± 0,02</td>
+<td style="text-align:right">32 ± 2</td>
+<td style="text-align:right">0,9968</td>
+<td style="text-align:right">99,84%</td>
+<td style="text-align:right">0,15 p.p.</td>
+<td style="text-align:right">0,097</td>
+</tr>
+<tr>
+<td>MNIST</td>
+<td>Sem aumento de dados</td>
+<td style="text-align:right"><strong>99,70% ± 0,02</strong></td>
+<td style="text-align:right">30 ± 2</td>
+<td style="text-align:right">0,9970</td>
+<td style="text-align:right">99,97%</td>
+<td style="text-align:right">0,26 p.p.</td>
+<td style="text-align:right">0,097</td>
+</tr>
+<tr>
+<td>CIFAR-10</td>
+<td><strong>Com aumento de dados</strong></td>
+<td style="text-align:right"><strong>92,22% ± 0,18</strong></td>
+<td style="text-align:right"><strong>778 ± 18</strong></td>
+<td style="text-align:right"><strong>0,9219</strong></td>
+<td style="text-align:right">98,19%</td>
+<td style="text-align:right"><strong>5,96 p.p.</strong></td>
+<td style="text-align:right"><strong>0,303</strong></td>
+</tr>
+<tr>
+<td>CIFAR-10</td>
+<td>Sem aumento de dados</td>
+<td style="text-align:right">89,97% ± 0,20</td>
+<td style="text-align:right">1.003 ± 20</td>
+<td style="text-align:right">0,8992</td>
+<td style="text-align:right">100,00%</td>
+<td style="text-align:right">10,03 p.p.</td>
+<td style="text-align:right">0,389</td>
+</tr>
+<tr>
+<td>CIFAR-10</td>
+<td>Sem nenhuma regularização (APS anterior)</td>
+<td style="text-align:right">86,17%</td>
+<td style="text-align:right">1.383</td>
+<td style="text-align:right">0,8616</td>
+<td style="text-align:right">100,00%</td>
+<td style="text-align:right">13,83 p.p.</td>
+<td style="text-align:right">0,765</td>
+</tr>
+</tbody>
+</table>
+<p><em>Média ± desvio-padrão de 3 sementes (42, 43 e 44); a última linha tem uma semente. Acc. treino é medida no treino sem aumento de dados e sem dropout; gap = acc. treino − acc. teste. Valores de cada semente em <code>results/ablacao/resumo_ablacao.csv</code>.</em></p>
+<p><span class="fig"><img src="../figures/ablacao_resultado.png" alt=""><span class="cap"><b>Figura 2 —</b> Erro no teste com e sem aumento de dados (menor é melhor). Os pontos pretos são as sementes: no CIFAR-10 as duas configurações não se sobrepõem; no MNIST elas se misturam.</span></span></p>
+<p><strong>No CIFAR-10 o componente faz muita diferença.</strong> Sem o aumento de dados a acurácia cai 2,26 p.p. (92,22% → 89,97%) e o número de erros sobe de 778 para 1.003: tirar o componente faz a rede errar 29% a mais. A queda é dez vezes maior que a variação entre sementes (desvio-padrão de 0,2 p.p.) e as três sementes &quot;sem&quot; ficaram abaixo das três &quot;com&quot;. O teste de McNemar compara os dois modelos imagem a imagem, nas mesmas 10.000 fotos:</p>
+<table>
+<thead>
+<tr>
+<th>Dataset</th>
+<th style="text-align:right">Semente</th>
+<th style="text-align:right">Só o modelo com aumento acerta</th>
+<th style="text-align:right">Só o modelo sem aumento acerta</th>
+<th style="text-align:right">p (McNemar)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CIFAR-10</td>
+<td style="text-align:right">42</td>
+<td style="text-align:right">485</td>
+<td style="text-align:right">248</td>
+<td style="text-align:right">1,4 × 10⁻¹⁸</td>
+</tr>
+<tr>
+<td>CIFAR-10</td>
+<td style="text-align:right">43</td>
+<td style="text-align:right">486</td>
+<td style="text-align:right">247</td>
+<td style="text-align:right">7,3 × 10⁻¹⁹</td>
+</tr>
+<tr>
+<td>CIFAR-10</td>
+<td style="text-align:right">44</td>
+<td style="text-align:right">451</td>
+<td style="text-align:right">250</td>
+<td style="text-align:right">2,8 × 10⁻¹⁴</td>
+</tr>
+<tr>
+<td>MNIST</td>
+<td style="text-align:right">42</td>
+<td style="text-align:right">13</td>
+<td style="text-align:right">17</td>
+<td style="text-align:right">0,58</td>
+</tr>
+<tr>
+<td>MNIST</td>
+<td style="text-align:right">43</td>
+<td style="text-align:right">11</td>
+<td style="text-align:right">13</td>
+<td style="text-align:right">0,84</td>
+</tr>
+<tr>
+<td>MNIST</td>
+<td style="text-align:right">44</td>
+<td style="text-align:right">12</td>
+<td style="text-align:right">12</td>
+<td style="text-align:right">1,00</td>
+</tr>
+</tbody>
+</table>
+<p>No CIFAR-10, em cada semente, as imagens que só o modelo com aumento de dados acerta são quase o dobro das que só o modelo sem ele acerta. O teste t de Welch sobre as três sementes dá o mesmo veredito (p = 0,0001).</p>
+<p><strong>No MNIST não há diferença.</strong> As médias diferem 0,02 p.p. (2 imagens em 10.000) a favor do modelo <em>sem</em> aumento de dados, bem dentro do ruído: o intervalo de confiança de 95% de uma acurácia de 99,7% em 10.000 imagens é de ±0,11 p.p., e nenhum McNemar chega perto de ser significativo (p ≥ 0,58). A hipótese H1 se confirmou, com um MNIST ainda mais saturado do que esperávamos: ali o componente não ajuda nem atrapalha a acurácia de teste. A seção 4.2 mostra o que ele muda no MNIST.</p>
+<h3>3.2 Sobreajuste: o que acontece no treino</h3>
+<p><span class="fig"><img src="../figures/ablacao_curvas.png" alt=""><span class="cap"><b>Figura 3 —</b> Acurácia de treino (linha clara) e de validação (linha escura) ao longo das épocas, média de 3 sementes. Sem aumento de dados, no CIFAR-10, o treino chega a ~100% e a validação para em ~90%.</span></span></p>
+<p>Sem aumento de dados, a MinhaCNN <strong>decora o CIFAR-10</strong>: a acurácia de treino chega a 100,00% nas três sementes, enquanto a de teste fica em 90%. Não é surpresa: redes desse porte conseguem decorar até rótulos sorteados ao acaso (Zhang et al., 2017). O gap dobra para 10,0 p.p., contra 6,0 com o componente — hipótese H2 confirmada. Com aumento de dados a rede quase nunca vê a mesma versão de uma imagem duas vezes; depois de 40 épocas ela acerta 98,2% do treino limpo e a melhor época de validação é a última (época 40 em duas das três sementes): ela ainda estava aprendendo quando o treino acabou.</p>
+<p>No MNIST o efeito é pequeno: sem aumento de dados a rede chega a 99,97% no treino e o gap passa de 0,15 para 0,26 p.p., mas a validação fica igual. O MNIST tem 55 mil imagens de um problema simples, e o dropout, o weight decay e o label smoothing já seguram o sobreajuste.</p>
+<p><span class="fig"><img src="../figures/ablacao_perda_validacao.png" alt=""><span class="cap"><b>Figura 4 —</b> Perda de validação por época (média de 3 sementes). No CIFAR-10 as curvas se separam a partir da época ~25 e terminam em 0,291 com aumento de dados e 0,373 sem.</span></span></p>
+<p>A perda de validação conta a mesma história. No CIFAR-10 as duas curvas andam juntas por cerca de 25 épocas e depois se separam: sem aumento de dados a perda de validação passa a cair bem mais devagar, enquanto a rede continua melhorando no treino até decorá-lo (99% de acerto no treino por volta da época 33). A perda não chega a subir, como subia no modelo sem nenhuma regularização da APS anterior (perda de teste de 0,765): o label smoothing, o dropout e o weight decay, que continuam ligados, impedem que a rede fique confiante demais nos erros.</p>
+<h3>3.3 Quanto da &quot;regularização&quot; da APS anterior é aumento de dados</h3>
+<table>
+<thead>
+<tr>
+<th>MinhaCNN no CIFAR-10 (semente 42)</th>
+<th style="text-align:right">Acurácia teste</th>
+<th style="text-align:right">Queda acumulada</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Com todas as técnicas de regularização</td>
+<td style="text-align:right">92,43%</td>
+<td style="text-align:right">—</td>
+</tr>
+<tr>
+<td>Sem aumento de dados (dropout, weight decay e label smoothing ligados)</td>
+<td style="text-align:right">90,06%</td>
+<td style="text-align:right">−2,37 p.p.</td>
+</tr>
+<tr>
+<td>Sem nenhuma regularização</td>
+<td style="text-align:right">86,17%</td>
+<td style="text-align:right">−6,26 p.p.</td>
+</tr>
+</tbody>
+</table>
+<p>A APS anterior mediu que a regularização valia 6,3 p.p. no CIFAR-10. Tirar só o aumento de dados custa 2,4 desses pontos: <strong>38% da queda</strong>. Os outros 62% vêm de dropout, weight decay e label smoothing juntos. O aumento de dados é importante, mas não é a única técnica que importa.</p>
+<h2>4. Por que o componente faz diferença (desafio)</h2>
+<p>Os gráficos desta seção mostram de onde vem a influência do componente: qual parte do aumento de dados rende mais, quanto aumentar e o que exatamente a rede aprende com ele.</p>
+<h3>4.1 Cada parte do aumento de dados e a intensidade do recorte</h3>
+<p><span class="fig"><img src="../figures/ablacao_partes_cifar10.png" alt=""><span class="cap"><b>Figura 5 —</b> À esquerda, o erro no teste do CIFAR-10 com cada parte do aumento de dados ligada sozinha. À direita, o erro com recortes de intensidades diferentes, sempre com espelhamento.</span></span></p>
+<table>
+<thead>
+<tr>
+<th>CIFAR-10 (semente 42)</th>
+<th style="text-align:right">Acurácia teste</th>
+<th style="text-align:right">Ganho sobre &quot;nenhum&quot;</th>
+<th style="text-align:right">Acc. treino</th>
+<th style="text-align:right">Gap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nenhum aumento</td>
+<td style="text-align:right">90,06%</td>
+<td style="text-align:right">—</td>
+<td style="text-align:right">100,00%</td>
+<td style="text-align:right">9,94 p.p.</td>
+</tr>
+<tr>
+<td>Só espelhamento</td>
+<td style="text-align:right">91,86%</td>
+<td style="text-align:right">+1,80 p.p.</td>
+<td style="text-align:right">99,88%</td>
+<td style="text-align:right">8,02 p.p.</td>
+</tr>
+<tr>
+<td>Só recorte (±4 px)</td>
+<td style="text-align:right">91,33%</td>
+<td style="text-align:right">+1,27 p.p.</td>
+<td style="text-align:right">99,79%</td>
+<td style="text-align:right">8,46 p.p.</td>
+</tr>
+<tr>
+<td>Recorte ±2 px + espelhamento</td>
+<td style="text-align:right">92,31%</td>
+<td style="text-align:right">+2,25 p.p.</td>
+<td style="text-align:right">98,68%</td>
+<td style="text-align:right">6,37 p.p.</td>
+</tr>
+<tr>
+<td><strong>Recorte ±4 px + espelhamento (padrão)</strong></td>
+<td style="text-align:right"><strong>92,43%</strong></td>
+<td style="text-align:right"><strong>+2,37 p.p.</strong></td>
+<td style="text-align:right">98,16%</td>
+<td style="text-align:right">5,73 p.p.</td>
+</tr>
+<tr>
+<td>Recorte ±6 px + espelhamento</td>
+<td style="text-align:right">91,99%</td>
+<td style="text-align:right">+1,93 p.p.</td>
+<td style="text-align:right">97,40%</td>
+<td style="text-align:right">5,41 p.p.</td>
+</tr>
+<tr>
+<td>Recorte ±8 px + espelhamento</td>
+<td style="text-align:right">91,58%</td>
+<td style="text-align:right">+1,52 p.p.</td>
+<td style="text-align:right">96,87%</td>
+<td style="text-align:right">5,29 p.p.</td>
+</tr>
+</tbody>
+</table>
+<p><em>Uma execução por linha. Como referência, o desvio-padrão entre sementes da configuração padrão é 0,18 p.p.: diferenças menores que ~0,4 p.p. nesta tabela não são confiáveis.</em></p>
+<ul>
+<li><strong>As duas partes ajudam, e o espelhamento ajuda mais.</strong> Sozinho, o espelhamento rende +1,8 p.p.; o recorte, +1,3 p.p. Isso faz sentido no CIFAR-10: um carro ou um cavalo virado para a esquerda é tão comum quanto um virado para a direita, e espelhar dobra a variedade de poses sem criar nada irreal.</li>
+<li><strong>As partes se sobrepõem.</strong> Juntas elas rendem +2,4 p.p., menos que a soma das duas separadas (+3,1 p.p.). Parte do que cada uma faz é o mesmo: impedir que a rede decore as imagens exatas do treino. Com uma parte só, a rede ainda acerta 99,8–99,9% do treino; com as duas, 98,2%.</li>
+<li><strong>Mais intensidade não é sempre melhor.</strong> O erro é menor entre ±2 e ±4 px e volta a subir com ±6 e ±8 px. O gap cai sempre que o recorte aumenta (de 8,0 para 5,3 p.p.), mas a acurácia de treino também cai (de 99,9% para 96,9%): com deslocamentos de 8 px numa imagem de 32 px, parte do objeto sai do quadro e a borda refletida cria imagens estranhas. Com o mesmo número de épocas, o aumento forte demais passa a atrapalhar o aprendizado, e a rede deixa de aprender o que precisa (<em>underfitting</em>). O padrão de ±4 px, que é o usual para o CIFAR-10, ficou no ponto certo.</li>
+</ul>
+<h3>4.2 O que o aumento de dados ensina: robustez</h3>
+<p>A acurácia no teste original só mostra parte do efeito. Para ver o que a rede aprendeu, avaliamos os 12 modelos principais no conjunto de teste <strong>transformado</strong>: deslocado, espelhado, girado, ampliado ou reduzido. Como <strong>controle</strong>, usamos ruído gaussiano, transformação que nenhum dos modelos viu no treino.</p>
+<p><span class="fig"><img src="../figures/ablacao_robustez.png" alt=""><span class="cap"><b>Figura 6 —</b> Acurácia dos modelos com e sem aumento de dados no teste transformado. A faixa cinza é o intervalo que o aumento de dados cobre no treino. O ruído (controle) é a única transformação em que o modelo com aumento de dados se sai pior.</span></span></p>
+<table>
+<thead>
+<tr>
+<th>Teste transformado</th>
+<th style="text-align:right">Com aumento</th>
+<th style="text-align:right">Sem aumento</th>
+<th style="text-align:right">Diferença</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CIFAR-10 original</td>
+<td style="text-align:right">92,22%</td>
+<td style="text-align:right">89,96%</td>
+<td style="text-align:right">+2,3 p.p.</td>
+</tr>
+<tr>
+<td>CIFAR-10 espelhado</td>
+<td style="text-align:right">92,19%</td>
+<td style="text-align:right">89,27%</td>
+<td style="text-align:right">+2,9 p.p.</td>
+</tr>
+<tr>
+<td>CIFAR-10 deslocado 4 px</td>
+<td style="text-align:right">91,41%</td>
+<td style="text-align:right">87,47%</td>
+<td style="text-align:right">+3,9 p.p.</td>
+</tr>
+<tr>
+<td>CIFAR-10 deslocado 8 px</td>
+<td style="text-align:right">86,64%</td>
+<td style="text-align:right">78,91%</td>
+<td style="text-align:right">+7,7 p.p.</td>
+</tr>
+<tr>
+<td>CIFAR-10 com ruído σ = 0,06 (controle)</td>
+<td style="text-align:right">51,63%</td>
+<td style="text-align:right">58,10%</td>
+<td style="text-align:right"><strong>−6,5 p.p.</strong></td>
+</tr>
+<tr>
+<td>MNIST original</td>
+<td style="text-align:right">99,68%</td>
+<td style="text-align:right">99,70%</td>
+<td style="text-align:right">−0,02 p.p.</td>
+</tr>
+<tr>
+<td>MNIST girado 45°</td>
+<td style="text-align:right">82,27%</td>
+<td style="text-align:right">75,22%</td>
+<td style="text-align:right">+7,1 p.p.</td>
+</tr>
+<tr>
+<td>MNIST girado −45°</td>
+<td style="text-align:right">69,20%</td>
+<td style="text-align:right">57,54%</td>
+<td style="text-align:right">+11,7 p.p.</td>
+</tr>
+<tr>
+<td>MNIST deslocado 6 px</td>
+<td style="text-align:right">99,11%</td>
+<td style="text-align:right">96,90%</td>
+<td style="text-align:right">+2,2 p.p.</td>
+</tr>
+<tr>
+<td>MNIST ampliado 1,4×</td>
+<td style="text-align:right">98,99%</td>
+<td style="text-align:right">96,58%</td>
+<td style="text-align:right">+2,4 p.p.</td>
+</tr>
+<tr>
+<td>MNIST com ruído σ = 0,2 (controle)</td>
+<td style="text-align:right">62,56%</td>
+<td style="text-align:right">76,53%</td>
+<td style="text-align:right"><strong>−14,0 p.p.</strong></td>
+</tr>
+</tbody>
+</table>
+<p><em>Média de 3 sementes. Deslocamento = média das 4 direções; no CIFAR-10 com borda refletida (como no recorte do treino) e no MNIST com fundo preto. σ é o desvio-padrão do ruído, com pixels entre 0 e 1.</em></p>
+<ul>
+<li><strong>Espelhamento.</strong> O modelo treinado com espelhamento é indiferente à orientação (92,22% → 92,19%). O modelo sem aumento de dados perde 0,7 p.p. quando a imagem é espelhada: parte do que ele acerta depende de o objeto estar virado para um lado específico, um detalhe que não tem nada a ver com a classe.</li>
+<li><strong>Deslocamento.</strong> As CNNs já têm alguma tolerância a deslocamentos por causa da convolução e do <em>pooling</em>, mas não é completa (Azulay e Weiss, 2019). Com 8 px de deslocamento, o modelo sem aumento de dados perde 11,1 p.p.; o modelo com aumento, 5,6 p.p. — metade.</li>
+<li><strong>MNIST.</strong> Aqui está o valor do componente no MNIST. Dentro da faixa vista no treino (±10°, ±2,2 px, escala de 0,9 a 1,1) os dois modelos praticamente empatam (diferenças de até 0,2 p.p.), porque o teste do MNIST já vem centralizado e normalizado em tamanho, igual ao treino. Fora dela, o modelo com aumento de dados é muito mais robusto: +7 a +12 p.p. a 45° de rotação, +2,2 p.p. com 6 px de deslocamento e +2,4 p.p. com o dígito 40% maior. Numa aplicação real, em que o dígito não vem centralizado, essa é a diferença que aparece.</li>
+<li><strong>Ruído (controle).</strong> Com ruído gaussiano, os modelos <strong>com</strong> aumento de dados foram <em>menos</em> robustos nos dois datasets (−6,5 p.p. no CIFAR-10 com σ = 0,06 e −14,0 p.p. no MNIST com σ = 0,2; nas três sementes, sem sobreposição). A hipótese H3 se confirmou de forma mais forte do que esperávamos: o aumento de dados não traz robustez geral, só às transformações que ele mostra no treino, e pode até piorar a robustez a outras. Não investigamos a causa. Outros trabalhos já mostraram que ganhar robustez a um tipo de perturbação pode custar robustez a outro (Yin et al., 2019); para resistir a ruído, a receita seria incluir ruído no próprio aumento de dados (Hendrycks e Dietterich, 2019).</li>
+</ul>
+<h3>4.3 Onde o ganho aparece: acurácia por classe</h3>
+<p><span class="fig"><img src="../figures/ablacao_por_classe_cifar10.png" alt=""><span class="cap"><b>Figura 7 —</b> Acurácia por classe no CIFAR-10 com e sem aumento de dados (média de 3 sementes). O componente ajuda em todas as classes, e mais nas classes de animais.</span></span></p>
+<p>O aumento de dados melhora <strong>todas</strong> as 10 classes do CIFAR-10. O ganho é maior justamente nas classes mais difíceis, os animais: gato (77,8% → 81,6%) e cachorro (84,9% → 88,7%) ganham 3,8 p.p. cada, pássaro 3,1 e cervo 2,8. Nos veículos o ganho fica entre 0,8 e 1,8 p.p. Animais aparecem em mais poses, posições e enquadramentos do que veículos; o recorte e o espelhamento multiplicam justamente essas variações. Entre os pares mais confundidos, o efeito é desigual: a confusão gato → cachorro, a mais frequente na APS anterior, quase não muda (91 → 90 imagens por semente), mas a contrária, cachorro → gato, cai 23% (76 → 59). As classes que mais ganham com o aumento de dados são as mesmas em que a ResNet18 pré-treinada levava mais vantagem na APS anterior. Nos dois casos, o que falta à MinhaCNN treinada do zero é ver mais variações dos animais.</p>
+<h2>5. Qual nossa opinião sobre o impacto do componente?</h2>
+<p><strong>No CIFAR-10, o aumento de dados é um componente essencial da MinhaCNN.</strong> Ele vale 2,3 p.p. de acurácia (22% menos erros), reduz o sobreajuste pela metade e melhora todas as classes, com resultados consistentes nas três sementes. E quase não custa nada: não acrescenta parâmetros, não muda a velocidade de inferência e deixa cada época de treino cerca de 5% mais lenta (8,4–8,8 s contra 8,2–8,3 s), porque as transformações rodam na GPU.</p>
+<p><strong>Mas não é &quot;o&quot; componente da regularização.</strong> Ele explica 38% da queda que a APS anterior via ao desligar toda a regularização. Os outros 62% vêm de dropout, weight decay e label smoothing. Esperávamos uma fatia maior; a ablação mostrou que a MinhaCNN depende do conjunto de técnicas, não de uma só.</p>
+<p><strong>No MNIST, ele não melhora a acurácia de teste — e nós o manteríamos assim mesmo.</strong> O teste do MNIST tem as mesmas condições do treino (dígitos centralizados e do mesmo tamanho), então ensinar a rede a lidar com rotações e deslocamentos não muda o placar. Mas o modelo com aumento de dados é bem mais robusto a dígitos girados, deslocados ou de outro tamanho, que é o que acontece fora do conjunto de dados. Se fôssemos julgar só pela tabela de acurácia, concluiríamos errado que o componente é inútil no MNIST.</p>
+<p><strong>O aumento de dados funciona porque é conhecimento sobre o problema, não porque é regularização genérica.</strong> Cada transformação diz à rede o que <em>não</em> muda a classe (Shorten e Khoshgoftaar, 2019): espelhar um gato continua sendo um gato, mas espelhar um &quot;2&quot; não é mais um &quot;2&quot; — por isso não usamos espelhamento no MNIST. Os experimentos mostram os dois lados: o ganho aparece exatamente nas transformações treinadas, transformações fortes demais (recorte de ±8 px) passam a atrapalhar, e o componente não protege contra o que não foi treinado (ruído). Nossa conclusão é que o aumento de dados deve ficar na MinhaCNN, escolhido de acordo com as variações que o problema realmente tem.</p>
+<p><strong>O que faríamos a seguir:</strong></p>
+<ol>
+<li><strong>Treinar por mais tempo com o aumento de dados.</strong> A melhor época foi a última e a rede ainda não tinha chegado a 100% no treino; sem o aumento, ela passou de 99% no treino por volta da época 33 e daí em diante só decorou. Quanto mais longo o treino, mais o componente tende a render.</li>
+<li><strong>Testar aumentos mais fortes de outro tipo, em vez de recortes maiores.</strong> O recorte já chegou ao ponto ótimo. <em>Cutout</em>, RandAugment ou <em>mixup</em> atacam outras variações (oclusão, cor, contraste) e são o próximo passo natural (DeVries e Taylor, 2017; Cubuk et al., 2020).</li>
+<li><strong>Incluir ruído, se a robustez a ruído importar.</strong> O controle mostrou que ela não vem de graça.</li>
+<li><strong>Usar o espelhamento também no teste</strong> (<em>test-time augmentation</em>): como o modelo é indiferente à orientação, a média das previsões da imagem original e da espelhada sai quase de graça.</li>
+</ol>
+<h2>6. Limitações</h2>
+<ul>
+<li><strong>Sementes.</strong> As configurações principais têm 3 sementes cada; as variantes da seção 4.1 têm uma só. Diferenças abaixo de ~0,4 p.p. entre variantes estão dentro do ruído (desvio-padrão de 0,18–0,20 p.p. entre sementes).</li>
+<li><strong>Mesmo número de épocas.</strong> Todas as configurações usaram 40 épocas no CIFAR-10 e 15 no MNIST. Com o aumento de dados a rede converge mais devagar; com treinos mais longos o ganho do componente provavelmente seria maior e a intensidade ideal do recorte poderia mudar.</li>
+<li><strong>Um componente por vez.</strong> Não medimos as interações entre o aumento de dados e as outras técnicas de regularização. A conta de 38% da seção 3.3 depende da ordem: desligamos primeiro o aumento de dados e depois as outras três.</li>
+<li><strong>Tempo de treino.</strong> O treino &quot;CIFAR-10 sem aumento, semente 42&quot; dividiu a GPU com outra tarefa por alguns minutos, por isso o tempo dele (12,5 min) não é comparável; a acurácia não é afetada. Os tempos por época citados vêm das outras sementes.</li>
+</ul>
+<h2>7. Reprodutibilidade</h2>
+<p>O estudo de ablação está no mesmo repositório da APS anterior, na branch <code>ablacao-aumento-dados</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Arquivo</th>
+<th>Função</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ablacao_aumento_de_dados.ipynb</code></td>
+<td>notebook executado com o estudo completo: comandos de treino, tabelas, testes estatísticos e gráficos</td>
+</tr>
+<tr>
+<td><code>run_ablation.py</code></td>
+<td>lista os 15 treinos da ablação, executa os que faltam e roda a análise</td>
+</tr>
+<tr>
+<td><code>src/train.py</code></td>
+<td>treino de um experimento; ganhou as opções <code>--no-aug</code>, <code>--crop-pad</code>, <code>--no-flip</code> e <code>--subdir</code></td>
+</tr>
+<tr>
+<td><code>src/data.py</code></td>
+<td>aumento de dados na GPU; <code>make_augment</code> aceita a intensidade do recorte e liga/desliga o espelhamento</td>
+</tr>
+<tr>
+<td><code>src/ablation.py</code></td>
+<td>tabelas, estatística, testes de robustez e figuras do estudo</td>
+</tr>
+<tr>
+<td><code>results/ablacao/</code></td>
+<td>métricas, histórico e predições de cada treino; <code>resumo_ablacao.csv</code>, <code>estatistica_ablacao.json</code> e <code>robustez.json</code></td>
+</tr>
+<tr>
+<td><code>figures/ablacao_*.png</code></td>
+<td>as figuras deste documento</td>
+</tr>
+<tr>
+<td><code>logs/ablacao/</code></td>
+<td>saída de cada treino</td>
+</tr>
+</tbody>
+</table>
+<p>Para reproduzir: <code>python download_data.py</code>, <code>python run_all.py</code> (APS anterior, que gera a semente 42 com aumento) e <code>python run_ablation.py</code>. Para refazer só a análise: <code>python -m src.ablation</code>. Este documento é gerado com <code>python -m src.make_report --src relatorio/ablacao.md --out Relatorio_Ablacao_CNN</code>.</p>
+<h2>Referências</h2>
+<ul>
+<li>AZULAY, A.; WEISS, Y. Why Do Deep Convolutional Networks Generalize So Poorly to Small Image Transformations? JMLR, 20, 2019.</li>
+<li>CUBUK, E. D. et al. RandAugment: Practical Automated Data Augmentation with a Reduced Search Space. NeurIPS, 2020.</li>
+<li>DEVRIES, T.; TAYLOR, G. W. Improved Regularization of Convolutional Neural Networks with Cutout. arXiv:1708.04552, 2017.</li>
+<li>HENDRYCKS, D.; DIETTERICH, T. Benchmarking Neural Network Robustness to Common Corruptions and Perturbations. ICLR, 2019.</li>
+<li>KRIZHEVSKY, A.; SUTSKEVER, I.; HINTON, G. E. ImageNet Classification with Deep Convolutional Neural Networks. NeurIPS, 2012.</li>
+<li>MEYES, R. et al. Ablation Studies in Artificial Neural Networks. arXiv:1901.08644, 2019.</li>
+<li>SHORTEN, C.; KHOSHGOFTAAR, T. M. A Survey on Image Data Augmentation for Deep Learning. Journal of Big Data, 6, 60, 2019.</li>
+<li>SIMARD, P. Y.; STEINKRAUS, D.; PLATT, J. C. Best Practices for Convolutional Neural Networks Applied to Visual Document Analysis. ICDAR, 2003.</li>
+<li>YIN, D. et al. A Fourier Perspective on Model Robustness in Computer Vision. NeurIPS, 2019.</li>
+<li>ZHANG, C. et al. Understanding Deep Learning Requires Rethinking Generalization. ICLR, 2017.</li>
+</ul>
+</body></html>

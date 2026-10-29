@@ -1,0 +1,44 @@
+execuções: [('cifar10', 'com', 42), ('cifar10', 'com', 43), ('cifar10', 'com', 44), ('cifar10', 'crop', 42), ('cifar10', 'flip', 42), ('cifar10', 'noreg', 42), ('cifar10', 'pad2', 42), ('cifar10', 'pad6', 42), ('cifar10', 'pad8', 42), ('cifar10', 'sem', 42), ('cifar10', 'sem', 43), ('cifar10', 'sem', 44), ('mnist', 'com', 42), ('mnist', 'com', 43), ('mnist', 'com', 44), ('mnist', 'sem', 42), ('mnist', 'sem', 43), ('mnist', 'sem', 44)]
+{
+ "mnist": {
+  "media_com": 0.9968333045641581,
+  "media_sem": 0.9970332980155945,
+  "dp_com": 0.00020816773780101686,
+  "dp_sem": 0.00015274535423246812,
+  "diferenca_pp": -0.01999934514363977,
+  "erros_com": 31.666954358419154,
+  "erros_sem": 29.667019844055176,
+  "reducao_erros_pct": -6.741272041737401,
+  "welch_p": 0.2567184747613635
+ },
+ "cifar10": {
+  "media_com": 0.9222333033879598,
+  "media_sem": 0.8996666272481283,
+  "dp_com": 0.001792565514603363,
+  "dp_sem": 0.001973152310388352,
+  "diferenca_pp": 2.2566676139831543,
+  "erros_com": 777.6669661204016,
+  "erros_sem": 1003.3337275187171,
+  "reducao_erros_pct": 22.491694957409436,
+  "welch_p": 0.00013352566297619245
+ },
+ "cifar10_escada_s42": {
+  "com": 0.924299955368042,
+  "sem_aumento": 0.9005999565124512,
+  "sem_regularizacao": 0.8616999983787537,
+  "fracao_explicada_pelo_aumento": 0.37859449104168236
+ }
+}
+robustez mnist com s42: original 0.9966
+robustez mnist com s43: original 0.9970
+robustez mnist com s44: original 0.9969
+robustez mnist sem s42: original 0.9970
+robustez mnist sem s43: original 0.9972
+robustez mnist sem s44: original 0.9968
+robustez cifar10 com s42: original 0.9243
+robustez cifar10 com s43: original 0.9213
+robustez cifar10 com s44: original 0.9211
+robustez cifar10 sem s42: original 0.9006
+robustez cifar10 sem s43: original 0.8974
+robustez cifar10 sem s44: original 0.9009
+figuras salvas em figures/ablacao_*.png

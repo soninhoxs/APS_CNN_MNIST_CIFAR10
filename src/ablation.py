@@ -402,11 +402,6 @@ def fig_val_loss(runs):
             ep, vl, _ = mean_hist(runs, ds, cfg, "val_loss")
             lab = CFG_NAME[cfg]; col = COLORS[lab]
             ax.plot(ep, vl, color=col, lw=2.6, label=lab)
-            k = int(np.argmin(vl))
-            ax.scatter([ep[k]], [vl[k]], s=60, color=col, edgecolor=style.SURFACE, linewidth=1.5, zorder=3)
-            ax.annotate(f"mínimo: {br(vl[k], 3)} (época {ep[k]})", (ep[k], vl[k]),
-                        xytext=(0, -16 if cfg == "com" else 12), textcoords="offset points",
-                        ha="center", fontsize=9.5, color=style.INK2)
             items.append((ep[-1] + 0.4, vl[-1], br(vl[-1], 3), style.INK))
             hi = max(hi, vl[ep >= 3].max())
         ax.set_ylim(0, hi * 1.15)
@@ -419,8 +414,9 @@ def fig_val_loss(runs):
     title(fig, "Perda de validação ao longo do treino, com e sem aumento de dados")
     fig.tight_layout()
     finish(fig, "ablacao_perda_validacao.png",
-           "Média de 3 sementes. Entropia cruzada sem label smoothing, nas 5.000 imagens de validação. "
-           "Eixo começa em zero; os valores das primeiras épocas podem ficar acima do topo.")
+           "Média de 3 sementes. Entropia cruzada sem label smoothing, nas 5.000 imagens de validação; "
+           "o número à direita é o valor na última época.\nEixo começa em zero; os valores das primeiras "
+           "épocas podem ficar acima do topo.")
 
 
 def fig_parts(runs):
@@ -451,7 +447,7 @@ def fig_parts(runs):
     cfg_of = {0: "flip", 2: "pad2", 4: "com", 6: "pad6", 8: "pad8"}
     ev = [err(cfg_of[p]) for p in pads]
     a2.axhline(vals[0], color=COLORS[SEM], lw=1.6, ls=(0, (4, 3)))
-    a2.text(pads[-1], vals[0] - 0.12, f"sem aumento: {br(vals[0])}%", ha="right", va="top", fontsize=9.5,
+    a2.text(pads[0], vals[0] + 0.15, f"sem aumento: {br(vals[0])}%", ha="left", va="bottom", fontsize=9.5,
             color=style.INK2)
     a2.plot(pads, ev, color=COLORS[COM], lw=2.4, marker="o", markersize=8,
             markeredgecolor=style.SURFACE, markeredgewidth=1.5, label="recorte + espelhamento")
@@ -507,7 +503,7 @@ def fig_robust(rob):
                 ax.plot([0, 1], [o, f], color=COLORS[lab], lw=2.4, marker="o", markersize=9,
                         markeredgecolor=style.SURFACE, markeredgewidth=1.5, label=lab)
                 ax.text(-0.06, o, f"{br(o, 1)}%", ha="right", va="center", fontsize=10, color=style.INK)
-                ax.text(1.06, f, f"{br(f, 1)}%  ({'−' if f < o else '+'}{br(abs(o - f), 1)})",
+                ax.text(1.06, f, f"{br(f, 1)}%  ({'−' if f < o else '+'}{br(abs(o - f), 2)} p.p.)",
                         ha="left", va="center", fontsize=10, color=style.INK, fontweight="bold")
             ax.set_xticks([0, 1], ["original", "espelhada"])
             ax.set_xlim(-0.45, 1.7)
@@ -569,7 +565,7 @@ def fig_per_class(runs, ds="cifar10"):
     ax.set_xticks(np.arange(np.ceil(lo / 2) * 2, 100.1, 2))
     ax.set_xlabel("acurácia no teste (%)")
     ax.grid(axis="y", visible=False)
-    ax.legend(loc="lower left", frameon=True, facecolor=style.SURFACE, edgecolor=style.GRID, fontsize=10)
+    ax.legend(loc="upper left", frameon=True, facecolor=style.SURFACE, edgecolor=style.GRID, fontsize=10)
     ax.set_title(f"Acurácia por classe com e sem aumento de dados — {DS_NAME[ds]}", loc="left",
                  fontsize=15, fontweight="bold", color=style.INK)
     fig.tight_layout()

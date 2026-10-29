@@ -18,6 +18,8 @@ Atividade Prática Supervisionada da disciplina **Introdução à Aprendizagem P
 
 A entrega pede um documento com a comparação, a justificativa dos resultados e propostas de melhoria. O relatório está em [`relatorio/Relatorio_APS_CNN.pdf`](relatorio/Relatorio_APS_CNN.pdf) (também em [DOCX](relatorio/Relatorio_APS_CNN.docx) e [Markdown](relatorio/relatorio.md)). O desafio pede a visualização das ativações dos kernels; ele está na seção 7 do relatório e no fim deste README.
 
+A segunda entrega é um **estudo de ablação** da MinhaCNN: o aumento de dados foi ligado e desligado, com todo o resto igual. O documento está em [`relatorio/Relatorio_Ablacao_CNN.pdf`](relatorio/Relatorio_Ablacao_CNN.pdf) (também em [DOCX](relatorio/Relatorio_Ablacao_CNN.docx) e [Markdown](relatorio/ablacao.md)), e o notebook executado em [`ablacao_aumento_de_dados.ipynb`](ablacao_aumento_de_dados.ipynb). O resumo está na seção [Estudo de ablação](#estudo-de-ablação-aumento-de-dados).
+
 ### Problema
 
 Uma CNN pequena, treinada só com as imagens do próprio dataset, compete com uma rede maior que já viu 1,28 milhão de fotos? E, se perde, a diferença vem da arquitetura ou do pré-treino?
@@ -30,6 +32,7 @@ O MNIST é quase resolvido por qualquer CNN; o CIFAR-10 não. Imagens de 32×32 
 * **Regularização** — Dropout2d nos blocos, dropout 0,3 na cabeça, weight decay 5e-4, label smoothing 0,1 e aumento de dados na GPU. No CIFAR-10: recorte com padding de 4 px e espelhamento. No MNIST: rotação de 10°, translação de 8% e escala de 0,9 a 1,1, sem espelhamento.
 * **Rede pré-treinada em três usos** — ResNet18 (`IMAGENET1K_V1`) em 224×224 com fine-tuning completo, como extratora de características (backbone congelado) e treinada do zero como controle.
 * **Ablação** — a mesma MinhaCNN sem aumento de dados, dropout, weight decay e label smoothing.
+* **Estudo de ablação do aumento de dados** — só o aumento de dados desligado, 3 sementes por configuração, cada parte do aumento sozinha, a intensidade do recorte e testes de robustez no teste transformado.
 * **Comparação com estatística** — intervalo de confiança de 95% e teste de McNemar sobre as mesmas 10 mil imagens de teste.
 * **Desafio** — kernels da primeira camada, mapas de ativação, maximização de ativação, imagens que mais ativam cada neurônio e Grad-CAM.
 
@@ -135,6 +138,7 @@ A validação sai do treino oficial, sorteada com seed 0. O teste é o split ofi
 | **Treino** | SGD com Nesterov, One-Cycle, precisão mista fp16 |
 | **Avaliação** | Acurácia, F1 macro, matriz de confusão, acurácia por classe, IC 95% e McNemar |
 | **Desafio** | Kernels, mapas de ativação, maximização de ativação, top imagens e Grad-CAM |
+| **Ablação** | Aumento de dados ligado/desligado, 3 sementes, McNemar e teste t, decomposição, intensidade e robustez |
 | **Gráficos** | seaborn + matplotlib: escalas lineares, valores escritos nas curvas e no mesmo eixo entre painéis |
 | **Relatório** | Markdown convertido em DOCX e PDF por script próprio |
 | **Hardware** | RTX 3050 Laptop (6 GB); a execução completa leva cerca de 50 minutos |
@@ -168,6 +172,38 @@ A MinhaCNN é 9,5× menor e classifica 12× mais imagens por segundo. A regulari
 | Sem regularização | 86,17% | 100,00% | 13,8 p.p. | 0,765 |
 
 Sem regularização a rede chega a 100% no treino em cerca de 20 épocas e a validação para em 87%.
+
+---
+
+## Estudo de ablação: aumento de dados
+
+O componente estudado é o **aumento de dados** da MinhaCNN: recorte e espelhamento no CIFAR-10; rotação, translação e escala no MNIST. Só ele é desligado. Dropout, weight decay, label smoothing, arquitetura, otimizador e épocas ficam iguais. Cada configuração roda com 3 sementes.
+
+| Dataset | Configuração | Acurácia no teste | Erros (de 10.000) | Acurácia no treino | Gap | Perda de teste |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| MNIST | Com aumento de dados | 99,68% ± 0,02 | 32 | 99,84% | 0,15 p.p. | 0,097 |
+| MNIST | Sem aumento de dados | 99,70% ± 0,02 | 30 | 99,97% | 0,26 p.p. | 0,097 |
+| CIFAR-10 | Com aumento de dados | **92,22% ± 0,18** | **778** | 98,19% | **6,0 p.p.** | **0,303** |
+| CIFAR-10 | Sem aumento de dados | 89,97% ± 0,20 | 1.003 | 100,00% | 10,0 p.p. | 0,389 |
+
+_Média ± desvio-padrão de 3 sementes._
+
+* **CIFAR-10:** sem aumento de dados a rede decora o treino e erra 29% a mais (McNemar, p < 10⁻¹³ em cada semente). O componente explica 38% da queda de 6,3 p.p. que a ablação da APS anterior atribuía a toda a regularização.
+* **MNIST:** empate no teste (p ≥ 0,58). O ganho aparece fora da distribuição de teste: com dígitos girados 45° o modelo com aumento de dados acerta de 7 a 12 p.p. a mais.
+* **De onde vem o ganho:** o espelhamento sozinho rende +1,8 p.p. e o recorte sozinho +1,3. A melhor intensidade do recorte fica entre ±2 e ±4 px. As classes que mais ganham são gato e cachorro (+3,8 p.p.).
+* **Controle:** contra ruído gaussiano, que nenhum modelo viu no treino, os modelos com aumento de dados foram *menos* robustos. O componente ensina invariâncias específicas, não robustez geral.
+
+![Efeito do aumento de dados](figures/ablacao_resultado.png)
+
+_**Resultado principal** — erro no teste, com cada semente como um ponto. No CIFAR-10 as duas configurações não se sobrepõem; no MNIST elas se misturam._
+
+![Robustez com e sem aumento de dados](figures/ablacao_robustez.png)
+
+_**O que o componente ensina** — acurácia no teste transformado. A faixa cinza é o que o aumento de dados cobre no treino. A diferença cresce fora dessa faixa e se inverte com ruído, a transformação de controle._
+
+![Partes e intensidade do aumento de dados](figures/ablacao_partes_cifar10.png)
+
+_**Cada parte e a intensidade** — no CIFAR-10, espelhamento e recorte ajudam sozinhos, mas se sobrepõem. Recortes maiores que ±4 px voltam a piorar._
 
 ---
 
@@ -241,12 +277,24 @@ python -m src.make_report
 
 `run_all.py` treina os 8 experimentos, gera os gráficos em `figures/` e as visualizações do desafio. Os resultados de cada experimento ficam em `results/<experimento>/` e os logs em `logs/`. Com GPU, a passagem completa fica na casa dos 50 minutos. `make_report` regenera o DOCX e o PDF a partir de `relatorio/relatorio.md` (o PDF usa o Microsoft Edge em modo headless).
 
+O estudo de ablação do aumento de dados roda depois (usa a MinhaCNN da APS anterior como semente 42 com aumento):
+
+```bash
+python run_ablation.py
+python -m src.make_report --src relatorio/ablacao.md --out Relatorio_Ablacao_CNN
+```
+
+`run_ablation.py` treina os 15 experimentos que faltam (cerca de 75 minutos), mede a robustez dos modelos no teste transformado e gera `figures/ablacao_*.png` e as tabelas em `results/ablacao/`. Experimentos já concluídos são pulados; `--skip-train` refaz só a análise. O notebook `ablacao_aumento_de_dados.ipynb` lê esses resultados e mostra o estudo passo a passo.
+
 Para rodar um experimento isolado:
 
 ```bash
 python -m src.train --dataset cifar10 --model minhacnn --epochs 40 --lr 0.1 --tag minhacnn_cifar10
 python -m src.train --dataset cifar10 --model resnet18 --epochs 5 --lr 0.01 --wd 1e-4 --tag resnet18_ft_cifar10
+python -m src.train --dataset cifar10 --model minhacnn --epochs 40 --lr 0.1 --no-aug --seed 43 --subdir ablacao --tag cifar10_sem_s43
 ```
+
+`--no-aug` desliga só o aumento de dados (dropout, weight decay e label smoothing continuam); `--crop-pad N` muda o deslocamento máximo do recorte no CIFAR-10 e `--no-flip` tira o espelhamento.
 
 No Windows com Anaconda, o numpy (MKL) e o PyTorch trazem cada um sua cópia da runtime OpenMP, e o matplotlib aborta com `OMP: Error #15`. O pacote `src` já define `KMP_DUPLICATE_LIB_OK=TRUE` para contornar.
 
@@ -256,6 +304,8 @@ No Windows com Anaconda, o numpy (MKL) e o PyTorch trazem cada um sua cópia da 
 
 ```
 ├── run_all.py               # roda os 8 experimentos, os gráficos e o desafio
+├── run_ablation.py          # estudo de ablação: 15 treinos + análise
+├── ablacao_aumento_de_dados.ipynb  # notebook executado do estudo de ablação
 ├── download_data.py         # baixa MNIST e CIFAR-10 para data/raw/
 ├── requirements.txt
 ├── src/
@@ -264,15 +314,20 @@ No Windows com Anaconda, o numpy (MKL) e o PyTorch trazem cada um sua cópia da 
 │   ├── train.py             # treino e avaliação de um experimento
 │   ├── plots.py             # gráficos, tabela-resumo e McNemar
 │   ├── activations.py       # desafio: kernels, ativações e Grad-CAM
+│   ├── ablation.py          # ablação: tabelas, McNemar, robustez e gráficos
 │   ├── style.py             # paleta e estilo dos gráficos
-│   └── make_report.py       # relatorio.md -> DOCX e PDF
+│   └── make_report.py       # Markdown -> DOCX e PDF
 ├── results/                 # métricas, histórico e predições de cada experimento
-├── figures/                 # gráficos em PNG
-├── logs/                    # saída de cada treino
+│   └── ablacao/             # os treinos da ablação, resumo, estatística e robustez
+├── figures/                 # gráficos em PNG (ablacao_*.png = estudo de ablação)
+├── logs/                    # saída de cada treino (logs/ablacao/ para a ablação)
 ├── relatorio/
-│   ├── Relatorio_APS_CNN.pdf
+│   ├── Relatorio_APS_CNN.pdf        # APS 1: CNN própria x ResNet18
 │   ├── Relatorio_APS_CNN.docx
-│   └── relatorio.md
+│   ├── relatorio.md
+│   ├── Relatorio_Ablacao_CNN.pdf    # APS 2: estudo de ablação
+│   ├── Relatorio_Ablacao_CNN.docx
+│   └── ablacao.md
 └── README.md
 ```
 

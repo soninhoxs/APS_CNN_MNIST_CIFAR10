@@ -1,0 +1,30 @@
+>> C:\Users\soninho\anaconda3\envs\coco_nlp\python.exe -m src.train --subdir ablacao --tag mnist_sem_s42 --dataset mnist --model minhacnn --epochs 15 --lr 0.1 --wd 5e-4 --no-aug --seed 42
+    [mnist_sem_s42] TESTE acc=0.9970 f1=0.9970 (melhor época 13) tempo=2.3 min | inferência 22762 img/s
+>> C:\Users\soninho\anaconda3\envs\coco_nlp\python.exe -m src.train --subdir ablacao --tag cifar10_sem_s42 --dataset cifar10 --model minhacnn --epochs 40 --lr 0.1 --wd 5e-4 --no-aug --seed 42
+    [cifar10_sem_s42] TESTE acc=0.9006 f1=0.9001 (melhor época 37) tempo=12.5 min | inferência 16704 img/s
+>> C:\Users\soninho\anaconda3\envs\coco_nlp\python.exe -m src.train --subdir ablacao --tag mnist_sem_s43 --dataset mnist --model minhacnn --epochs 15 --lr 0.1 --wd 5e-4 --no-aug --seed 43
+    [mnist_sem_s43] TESTE acc=0.9972 f1=0.9972 (melhor época 15) tempo=2.3 min | inferência 22691 img/s
+>> C:\Users\soninho\anaconda3\envs\coco_nlp\python.exe -m src.train --subdir ablacao --tag cifar10_sem_s43 --dataset cifar10 --model minhacnn --epochs 40 --lr 0.1 --wd 5e-4 --no-aug --seed 43
+    [cifar10_sem_s43] TESTE acc=0.8974 f1=0.8968 (melhor época 39) tempo=5.7 min | inferência 19278 img/s
+>> C:\Users\soninho\anaconda3\envs\coco_nlp\python.exe -m src.train --subdir ablacao --tag mnist_com_s43 --dataset mnist --model minhacnn --epochs 15 --lr 0.1 --wd 5e-4 --seed 43
+    [mnist_com_s43] TESTE acc=0.9970 f1=0.9970 (melhor época 13) tempo=2.1 min | inferência 25010 img/s
+>> C:\Users\soninho\anaconda3\envs\coco_nlp\python.exe -m src.train --subdir ablacao --tag cifar10_com_s43 --dataset cifar10 --model minhacnn --epochs 40 --lr 0.1 --wd 5e-4 --seed 43
+    [cifar10_com_s43] TESTE acc=0.9213 f1=0.9210 (melhor época 40) tempo=5.8 min | inferência 19066 img/s
+>> C:\Users\soninho\anaconda3\envs\coco_nlp\python.exe -m src.train --subdir ablacao --tag mnist_sem_s44 --dataset mnist --model minhacnn --epochs 15 --lr 0.1 --wd 5e-4 --no-aug --seed 44
+    [mnist_sem_s44] TESTE acc=0.9969 f1=0.9969 (melhor época 13) tempo=2.0 min | inferência 25012 img/s
+>> C:\Users\soninho\anaconda3\envs\coco_nlp\python.exe -m src.train --subdir ablacao --tag cifar10_sem_s44 --dataset cifar10 --model minhacnn --epochs 40 --lr 0.1 --wd 5e-4 --no-aug --seed 44
+    [cifar10_sem_s44] TESTE acc=0.9010 f1=0.9008 (melhor época 39) tempo=5.6 min | inferência 19209 img/s
+>> C:\Users\soninho\anaconda3\envs\coco_nlp\python.exe -m src.train --subdir ablacao --tag mnist_com_s44 --dataset mnist --model minhacnn --epochs 15 --lr 0.1 --wd 5e-4 --seed 44
+    [mnist_com_s44] TESTE acc=0.9969 f1=0.9969 (melhor época 14) tempo=2.1 min | inferência 25069 img/s
+>> C:\Users\soninho\anaconda3\envs\coco_nlp\python.exe -m src.train --subdir ablacao --tag cifar10_com_s44 --dataset cifar10 --model minhacnn --epochs 40 --lr 0.1 --wd 5e-4 --seed 44
+    [cifar10_com_s44] TESTE acc=0.9211 f1=0.9207 (melhor época 40) tempo=6.1 min | inferência 17966 img/s
+>> C:\Users\soninho\anaconda3\envs\coco_nlp\python.exe -m src.train --subdir ablacao --tag cifar10_flip_s42 --dataset cifar10 --model minhacnn --epochs 40 --lr 0.1 --wd 5e-4 --crop-pad 0 --seed 42
+    [cifar10_flip_s42] TESTE acc=0.9186 f1=0.9183 (melhor época 40) tempo=5.7 min | inferência 19236 img/s
+>> C:\Users\soninho\anaconda3\envs\coco_nlp\python.exe -m src.train --subdir ablacao --tag cifar10_crop_s42 --dataset cifar10 --model minhacnn --epochs 40 --lr 0.1 --wd 5e-4 --no-flip --seed 42
+    [cifar10_crop_s42] TESTE acc=0.9133 f1=0.9127 (melhor época 39) tempo=5.7 min | inferência 19180 img/s
+>> C:\Users\soninho\anaconda3\envs\coco_nlp\python.exe -m src.train --subdir ablacao --tag cifar10_pad2_s42 --dataset cifar10 --model minhacnn --epochs 40 --lr 0.1 --wd 5e-4 --crop-pad 2 --seed 42
+    [cifar10_pad2_s42] TESTE acc=0.9231 f1=0.9227 (melhor época 38) tempo=5.8 min | inferência 19160 img/s
+>> C:\Users\soninho\anaconda3\envs\coco_nlp\python.exe -m src.train --subdir ablacao --tag cifar10_pad6_s42 --dataset cifar10 --model minhacnn --epochs 40 --lr 0.1 --wd 5e-4 --crop-pad 6 --seed 42
+    [cifar10_pad6_s42] TESTE acc=0.9199 f1=0.9196 (melhor época 39) tempo=5.8 min | inferência 19171 img/s
+>> C:\Users\soninho\anaconda3\envs\coco_nlp\python.exe -m src.train --subdir ablacao --tag cifar10_pad8_s42 --dataset cifar10 --model minhacnn --epochs 40 --lr 0.1 --wd 5e-4 --crop-pad 8 --seed 42
+    [cifar10_pad8_s42] TESTE acc=0.9158 f1=0.9154 (melhor época 39) tempo=5.9 min | inferência 19209 img/s
