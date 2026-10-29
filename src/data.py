@@ -134,9 +134,15 @@ def random_affine(x: torch.Tensor, max_deg: float = 10, max_shift: float = 0.08,
     return F.grid_sample(x, grid, align_corners=False, padding_mode="zeros")
 
 
-def make_augment(dataset: str):
+def make_augment(dataset: str, crop_pad: int = 4, flip: bool = True):
+    """Aumento de dados padrão. No CIFAR-10, `crop_pad` e `flip` controlam as duas partes
+    (usados no estudo de ablação); crop_pad=0 desliga o recorte."""
     if dataset == "cifar10":
-        return lambda x: random_hflip(random_crop(x, 4))
+        def aug(x):
+            if crop_pad > 0:
+                x = random_crop(x, crop_pad)
+            return random_hflip(x) if flip else x
+        return aug
     if dataset == "mnist":
         return lambda x: random_affine(x)
     raise ValueError(dataset)

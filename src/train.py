@@ -35,6 +35,13 @@ def parse_args(argv=None):
     p.add_argument("--label-smoothing", type=float, default=0.1)
     p.add_argument("--no-reg", action="store_true",
                    help="ablação: sem data augmentation, dropout, weight decay e label smoothing")
+    p.add_argument("--no-aug", action="store_true",
+                   help="ablação: desliga só o aumento de dados (o resto da regularização fica)")
+    p.add_argument("--crop-pad", type=int, default=4,
+                   help="CIFAR-10: padding do recorte aleatório (0 = sem recorte)")
+    p.add_argument("--no-flip", action="store_true", help="CIFAR-10: sem espelhamento horizontal")
+    p.add_argument("--subdir", default="",
+                   help="grava em results/<subdir>/<tag> e checkpoints/<subdir>/<tag>.pt")
     p.add_argument("--no-pretrained", action="store_true")
     p.add_argument("--freeze", action="store_true", help="congela o backbone (só treina a fc)")
     p.add_argument("--img-size", type=int, default=224, help="resolução de entrada da ResNet")
@@ -93,13 +100,14 @@ def main(argv=None):
     torch.backends.cudnn.benchmark = True
     dev = "cuda"
 
-    out_dir = ROOT / "results" / args.tag
+    out_dir = ROOT / "results" / args.subdir / args.tag
     out_dir.mkdir(parents=True, exist_ok=True)
-    (ROOT / "checkpoints").mkdir(exist_ok=True)
-    ckpt = ROOT / "checkpoints" / f"{args.tag}.pt"
+    ckpt = ROOT / "checkpoints" / args.subdir / f"{args.tag}.pt"
+    ckpt.parent.mkdir(parents=True, exist_ok=True)
 
     splits = get_splits(args.dataset)
-    augment = None if args.no_reg else make_augment(args.dataset)
+    augment = None if (args.no_reg or args.no_aug) else \
+        make_augment(args.dataset, crop_pad=args.crop_pad, flip=not args.no_flip)
     train_ld = GPULoader(*splits["train"], args.bs, True, augment, dev)
     train_eval_ld = GPULoader(*splits["train"], 512, False, None, dev)
     val_ld = GPULoader(*splits["val"], 512, False, None, dev)

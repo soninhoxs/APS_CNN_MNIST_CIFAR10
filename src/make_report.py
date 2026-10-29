@@ -2,7 +2,8 @@
 e em PDF (HTML + Microsoft Edge em modo headless).
 
 Uso:  python -m src.make_report
-Saídas: relatorio/Relatorio_APS_CNN.docx, relatorio/Relatorio_APS_CNN.pdf, relatorio/relatorio.html
+      python -m src.make_report --src relatorio/ablacao.md --out Relatorio_Ablacao_CNN
+Saídas: relatorio/<out>.docx, relatorio/<out>.pdf e relatorio/<nome do .md>.html
 """
 from __future__ import annotations
 
@@ -396,14 +397,21 @@ def html_to_pdf(html_path: Path, pdf_path: Path):
     return pdf_path.exists()
 
 
-def main():
-    text = SRC.read_text(encoding="utf-8")
+def main(argv=None):
+    import argparse
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--src", default=str(SRC), help="Markdown de entrada (em relatorio/)")
+    ap.add_argument("--out", default=OUT_NAME, help="nome dos arquivos DOCX/PDF de saída")
+    a = ap.parse_args(argv)
+    src = Path(a.src)
+    text = src.read_text(encoding="utf-8")
     title = re.search(r"^# (.+)$", text, re.M).group(1)
     tokens = md.parse(text)
-    n = build_docx(tokens, REP / f"{OUT_NAME}.docx", title)
-    html_path = REP / "relatorio.html"
+    n = build_docx(tokens, REP / f"{a.out}.docx", title)
+    html_path = REP / f"{src.stem}.html"
     html_path.write_text(build_html(text), encoding="utf-8")
-    pdf = REP / f"{OUT_NAME}.pdf"
+    pdf = REP / f"{a.out}.pdf"
     if pdf.exists():
         pdf.unlink()
     ok = html_to_pdf(html_path, pdf)
